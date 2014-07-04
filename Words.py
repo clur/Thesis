@@ -43,6 +43,7 @@ class Words(object):
         else:  # 5 classes
             print '5 classes: rating 1 to 5'
             grouped = df.groupby('Token')
+
             for _, group in grouped:
                 g = group[group.Freq == group.Freq.max()]  # g is row in df with highest freq
                 token = g.Token.values[0]
