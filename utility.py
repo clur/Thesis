@@ -2,7 +2,7 @@ __author__ = 'claire'
 import codecs
 import random
 
-from numpy.random import random_sample
+# from numpy.random import random_sample
 from sklearn.feature_extraction.text import TfidfVectorizer as tf
 from sklearn.linear_model import LogisticRegression as log
 import numpy as np
@@ -21,6 +21,31 @@ def prob_sample(values, probabilities, size):
     """
     bins = np.add.accumulate(probabilities)
     return values[np.digitize(random_sample(size), bins)]
+
+
+def convert_target(target):
+    """converts list of words in target array into list of numbers.
+    0='positive', 1= 'neutral', 2= 'negative'
+    """
+    classes = list(set(target))
+    print [[i, classes[i]] for i in range(len(classes))]
+    new = []
+    for i in target:
+        for j in range(len(classes)):
+            if i == classes[j]:
+                new.append(j)
+    return new
+
+
+def target2tri(target):
+    """
+    target is list with possible values 1-5, convert to list with POS-0=4,5, NEUT-1=3
+    and NEG-2=1,2
+    :param target: list
+    :return:list
+    """
+    mapping = {5: 0, 4: 0, 3: 1, 2: 2, 1: 2}
+    return map(lambda x: mapping[x], target)
 
 
 def load_twitter(fname):
@@ -44,7 +69,7 @@ def load_amazon(fname):
     """
     raw = codecs.open(fname, 'rb', 'latin1').readlines()  # load and split data into reviews
     random.shuffle(raw)
-    target = [r.split('\t')[5] for r in raw]  # target is pos,neg,neutral
+    target = [int(float((r.split('\t')[5]))) for r in raw]  # target is pos,neg,neutral
     data = [' '.join(r.split('\t')[6:]) for r in raw]  # review text
     data = [d.lower().strip() for d in data]
     return data, target
