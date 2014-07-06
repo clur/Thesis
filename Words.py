@@ -60,6 +60,7 @@ class Words(object):
         :param cat: set true if 3 classes
         :param wpl: words per line
         :param lines: millions of lines
+
         '''
         with codecs.open('Data/generated/_' + str(lines) + 'mil', 'w', 'utf-8') as f:
             print 'writing permutations...'

@@ -2,6 +2,8 @@ __author__ = 'claire'
 import codecs
 import random
 
+from sklearn.svm import LinearSVC as svm
+from sklearn.naive_bayes import BernoulliNB as nb
 # from numpy.random import random_sample
 from sklearn.feature_extraction.text import TfidfVectorizer as tf
 from sklearn.linear_model import LogisticRegression as log
@@ -9,7 +11,7 @@ import numpy as np
 from sklearn.metrics import classification_report
 import gensim
 import re
-from collections import defaultdict
+from collections import defaultdict, Counter
 import Words
 
 
@@ -23,7 +25,7 @@ def prob_sample(values, probabilities, size):
     return values[np.digitize(random_sample(size), bins)]
 
 
-def convert_target(target):
+def target2int(target):
     """converts list of words in target array into list of numbers.
     0='positive', 1= 'neutral', 2= 'negative'
     """
@@ -67,7 +69,7 @@ def load_amazon(fname):
     :param fname: filename to read
     :return: data, list and target, list
     """
-    raw = codecs.open(fname, 'rb', 'latin1').readlines()  # load and split data into reviews
+    raw = codecs.open(fname, 'r', 'utf-8').readlines()  # load and split data into reviews
     random.shuffle(raw)
     target = [int(float((r.split('\t')[5]))) for r in raw]  # target is pos,neg,neutral
     data = [' '.join(r.split('\t')[6:]) for r in raw]  # review text
@@ -85,17 +87,27 @@ def print_top10(vectorizer, clf, class_labels):
     return s
 
 
-def bow_clf(trainfile, testfile):
+def bow_clf(tr_data, tr_target, te_data, te_target):
     '''read in train and test file and perform classification experiment with sklearn bow features and clf'''
 
-    tr_data, tr_target = load_amazon(trainfile)
-    te_data, te_target = load_amazon(testfile)
-    vec = tf()  # basic tfidf vectorizer
+    # tr_data, tr_target = load_amazon(trainfile)
+    # te_data, te_target = load_amazon(testfile)
+    vec = tf(ngram_range=(1, 4), max_df=0.9, min_df=0.01)  # basic tfidf vectorizer
     vec.fit(tr_data)
+    print 'TFIDF FIT'
     X_train = vec.transform(tr_data)
     X_test = vec.transform(te_data)
-    clf = log()
+    print 'TRANSFORMED'
+    clf = svm(class_weight='auto')
     clf.fit(X_train, tr_target)  # fit classifier to training data
+    # x=clf.predict(X_test)
+    # with open('twitter.train_predict','w') as f:
+    # for i in x:
+    #         f.write(str(i))
+    #         f.write('\n')
+    print 'data:\ntrain size: %s test size: %s' % (str(len(tr_target)), str(len(te_target)))
+    print 'train set class representation:' + str(Counter(tr_target))
+    print 'test set class representation: ' + str(Counter(te_target))
     print '\nclassifier\n----'
     print 'Accuracy on train:', clf.score(X_train, tr_target)
     print 'Accuracy on test:', clf.score(X_test, te_target)
@@ -155,18 +167,29 @@ def avg_rating(text, rating_dict):
     print np.mean(score)
 
 
+
+
 if __name__ == "__main__":
-    # values = np.array([1.1, 2.2, 3.3])
-    # probabilities = np.array([0.1, 0.9, 0.0])
-    #
-    # print prob_sample(values, probabilities, 10)
-    #
-    # print load_twitter('Data/twitter/twitter.train')[1][:100]
+    # BOW baseline
+    # tr_data, tr_target = load_twitter('Data/twitter/twitter.test')
+    tr_data, tr_target = load_amazon('Data/amazon/review10.train')
+    te_data, te_target = load_twitter('Data/twitter/twitter.train')
+    # te_data, te_target = load_amazon('Data/amazon/review.train')
 
-    # bow_clf('Data/amazon/review.train','Data/amazon/review.test')
 
-    tr_data, tr_target = load_amazon('Data/amazon/review.train')
-    te_data, te_target = load_amazon('Data/amazon/review.test')
+    # convert AMAZON data to 3
+    tr_target = target2tri(tr_target)
+    # te_target=target2tri(te_target)
+    # convert TWITTER data to int
+    # tr_target=target2int(tr_target)
+    te_target = target2int(te_target)
+    bow_clf(tr_data, tr_target, te_data, te_target)
+
+
+
+
+
+    #embedding stuff
 
     # X_train=vectorize(tr_data,'review-uni_10.model')
     # X_test=vectorize(te_data,'review-uni_10.model')
@@ -177,14 +200,14 @@ if __name__ == "__main__":
     # print 'Accuracy on train:', clf.score(X_train, tr_target)
     # print 'Accuracy on test:', clf.score(X_test, te_target)
     # print '\nReport\n', classification_report(te_target, clf.predict(X_test))
-    W = Words.Words()
-    W.build_dicts()
-    for i in W.rating_dict.keys():
-        print len(W.rating_dict[i])
+    # W = Words.Words()
+    # W.build_dicts()
+    # for i in W.rating_dict.keys():
+    # print len(W.rating_dict[i])
 
     # inv_rating = {v:k for k, v in W.rating_dict.items()}
 
     # avg_rating(tr_data[0],inv_rating) #todo invert list so keys are words and ratings are values
 
-    print tr_data[0]
+    # print tr_data[0]
     # pass

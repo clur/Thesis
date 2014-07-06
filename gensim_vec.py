@@ -16,6 +16,7 @@ class MySentences(object):
 
 
 start = time.time()
+
 print 'training model on ' + fname
 sentences = MySentences()
 model = gensim.models.Word2Vec(sentences, min_count=1, size=100, workers=4)
