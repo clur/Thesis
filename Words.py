@@ -53,6 +53,16 @@ class Words(object):
         # TODO make word rating dic attribute
 
 
+    def inv_dicts(self):
+        '''
+        invert the rating dictionary so that key is word and value is rating
+        :return:inverted dictionary
+        '''
+        values = set(a for b in self.rating_dict.values() for a in b)
+        self.word_dict = dict(
+            (new_key, [key for key, value in self.rating_dict.items() if new_key in value][0]) for new_key in values)
+
+
     def generate_text(self, cat=False, wpl=2, lines=1):
         '''use self.dic to randomly generate file with random combinations of words
 
