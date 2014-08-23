@@ -15,6 +15,31 @@ from collections import defaultdict, Counter
 import Words
 
 
+def labelstext_012(textfile):
+    '''
+    FOR TWITTER
+    convert labels text to 012
+    :param textfile:
+    :return:
+    '''
+    text = codecs.open(textfile, 'r', 'utf8').readlines()
+    target = [r.split('\t')[2] for r in text]
+    map = {'positive': 0, 'neutral': 1, 'negative': 2}
+    with open(textfile + '012.true', 'w') as f:
+        for t in target:
+            f.write(str(map[t]))
+            f.write('\n')
+
+
+def labels012_text(textfile):
+    pass
+
+
+# todo write more simple mapping functions from words to numbers
+#todo integrate scorer
+
+
+
 def prob_sample(values, probabilities, size):
     """returns a *random* sample of length size of the values based on probabilities
     values=list of length N
@@ -128,17 +153,17 @@ def tokenize(text):
 def vectorize(data, modelname):
     """
     :param data: data is a list of strings, each string is a document
-    :return: a sparse array of vectors representing data
+    :return: a sparse array of vectors representing word embeddings for words in word2vec model according to the modelname
     """
     model = gensim.models.Word2Vec.load(modelname)
     new_data = []
     # oovdic=defaultdict(int)
     blank = np.ndarray(model.layer1_size)  # TODO check this makes sense for comparisons
-    for i in data:
+    for i in data:  #for each document
         new_vec = []
-        for j in tokenize(i):
+        for j in tokenize(i):  #for each word in the document
             try:
-                new_vec.append(model[j])
+                new_vec.append(model[j])  #add the model representation of the word/ the embedding
             except:
                 new_vec.append(blank)  # to ensure document vectors are same size
                 # oovdic[j]+=1
@@ -147,67 +172,85 @@ def vectorize(data, modelname):
     return new_data
 
 
-def avg_rating(text, rating_dict):
+def avg_rating(text, word_dict):
     '''
     calculates the average sentiment score of a text as the average over ratings of unigrams in text based on
     amherst rating table.
     :param fname: textfile name to be scored
-    :param rating_dict: Words().dic
+    :param word_dict: Words().dic
     :return: the average rating over words in text
     '''
     score = []
+    oov = []
+    iv = []
+    l = 0
     for i in tokenize(text):
-        print 'word:', i
-        print 'rating of word:', rating_dict[i]
+        l += 1
         try:
-            print rating_dict[i]
-            score.append(rating_dict[i])
+            score.append(word_dict[i])
+            iv.append(i)
         except:
-            print i
-    print np.mean(score)
+            oov.append(i)
+            #todo put in a counter here to see how many words are oov
+    # print 'in:',iv
+    # print 'out:',oov
+    # print '% oov:',round((1.0*len(oov)/l)*100,0)
+    return np.mean(score)
 
 
+def amherst_average(word_dict, outf):
+    with open(outf, 'w') as f:
+        for i in te_data:
+            avg = avg_rating(i, word_dict)
+            avg = int(round(avg, 0))  #round the average to the nearest integer so it can be mapped to class labels
+            print target2tri([avg])[
+                0]  #map to tri class labels (make a list so it works with code above, then back to int
+            f.write(str(target2tri([avg])[0]))
+            f.write('\n')
+
+
+def get_senti_vocab(senti_word_dict):
+    vocab = []  # holds ngrams that are features
+    for i in senti_word_dict:
+        vocab.append(' '.join(i.split('_')))  # split words that are 2,3..grams
 
 
 if __name__ == "__main__":
     # BOW baseline
-    # tr_data, tr_target = load_twitter('Data/twitter/twitter.test')
-    tr_data, tr_target = load_amazon('Data/amazon/review10.train')
-    te_data, te_target = load_twitter('Data/twitter/twitter.train')
+    tr_data, tr_target = load_twitter('Data/twitter/twitter.train')
+    # tr_data, tr_target = load_amazon('Data/amazon/review10.train')
+    te_data, te_target = load_twitter('Data/twitter/twitter.test')
     # te_data, te_target = load_amazon('Data/amazon/review.train')
 
 
     # convert AMAZON data to 3
-    tr_target = target2tri(tr_target)
+    # tr_target = target2tri(tr_target)
     # te_target=target2tri(te_target)
     # convert TWITTER data to int
     # tr_target=target2int(tr_target)
-    te_target = target2int(te_target)
-    bow_clf(tr_data, tr_target, te_data, te_target)
-
-
-
-
+    # te_target = target2int(te_target)
+    # bow_clf(tr_data, tr_target, te_data, te_target)
 
     #embedding stuff
+    #review-uni_10.model is trained from unigrams, 10 million lines of words generated from amherst data
 
-    # X_train=vectorize(tr_data,'review-uni_10.model')
-    # X_test=vectorize(te_data,'review-uni_10.model')
+    # X_train=vectorize(tr_data,'Data/models/review-uni_10.model')
+    # X_test=vectorize(te_data,'Data/models/review-uni_10.model')
     # np.save('temp',X_test[0])
+    # print len(X_test), len(X_train)
+    # print len(X_test[0]), len(X_train[0])
     # clf = log()
     # clf.fit(X_train, tr_target)  #fit classifier to training data
     # print '\nclassifier\n----'
     # print 'Accuracy on train:', clf.score(X_train, tr_target)
     # print 'Accuracy on test:', clf.score(X_test, te_target)
     # print '\nReport\n', classification_report(te_target, clf.predict(X_test))
-    # W = Words.Words()
-    # W.build_dicts()
-    # for i in W.rating_dict.keys():
-    # print len(W.rating_dict[i])
 
-    # inv_rating = {v:k for k, v in W.rating_dict.items()}
-
-    # avg_rating(tr_data[0],inv_rating) #todo invert list so keys are words and ratings are values
-
-    # print tr_data[0]
-    # pass
+    W = Words.Words()
+    W.build_dict()  #creates the rating dictionary
+    W.inv_dict()  #inverts the rating dictionary to give the word dictionary
+    W.build_dict_senti()
+    print W.word_dict
+    print W.senti_word_dict
+    #TODO some mapping of sentiworddict values to pos neut neg etc
+    # amherst_average(W.word_dict,'Data/twitter/amherst.test.pred')
