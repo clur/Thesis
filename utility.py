@@ -36,7 +36,7 @@ def labels012_text(textfile):
 
 
 # todo write more simple mapping functions from words to numbers
-#todo integrate scorer
+# todo integrate scorer
 
 
 
@@ -150,7 +150,7 @@ def tokenize(text):
     return token_pattern.findall(text)
 
 
-def vectorize(data, modelname):
+def vectorize_gensim(data, modelname):
     """
     :param data: data is a list of strings, each string is a document
     :return: a sparse array of vectors representing word embeddings for words in word2vec model according to the modelname
@@ -172,7 +172,7 @@ def vectorize(data, modelname):
     return new_data
 
 
-def avg_rating(text, word_dict):
+def avg_rating_amherst(text, word_dict):
     '''
     calculates the average sentiment score of a text as the average over ratings of unigrams in text based on
     amherst rating table.
@@ -198,10 +198,13 @@ def avg_rating(text, word_dict):
     return np.mean(score)
 
 
-def amherst_average(word_dict, outf):
+def amherst_average_score(word_dict, outf):
+    '''
+    write to file
+    '''
     with open(outf, 'w') as f:
         for i in te_data:
-            avg = avg_rating(i, word_dict)
+            avg = avg_rating_amherst(i, word_dict)
             avg = int(round(avg, 0))  #round the average to the nearest integer so it can be mapped to class labels
             print target2tri([avg])[
                 0]  #map to tri class labels (make a list so it works with code above, then back to int
@@ -234,8 +237,8 @@ if __name__ == "__main__":
     #embedding stuff
     #review-uni_10.model is trained from unigrams, 10 million lines of words generated from amherst data
 
-    # X_train=vectorize(tr_data,'Data/models/review-uni_10.model')
-    # X_test=vectorize(te_data,'Data/models/review-uni_10.model')
+    # X_train=vectorize_gensim(tr_data,'Data/models/review-uni_10.model')
+    # X_test=vectorize_gensim(te_data,'Data/models/review-uni_10.model')
     # np.save('temp',X_test[0])
     # print len(X_test), len(X_train)
     # print len(X_test[0]), len(X_train[0])
@@ -247,10 +250,10 @@ if __name__ == "__main__":
     # print '\nReport\n', classification_report(te_target, clf.predict(X_test))
 
     W = Words.Words()
-    W.build_dict()  #creates the rating dictionary
-    W.inv_dict()  #inverts the rating dictionary to give the word dictionary
-    W.build_dict_senti()
-    print W.word_dict
-    print W.senti_word_dict
+    W.build_dict_amherst()  #creates the rating dictionary
+    W.build_dict_sentiword()
+    print W.amherst_dict
+    print W.sentiword_dict
     #TODO some mapping of sentiworddict values to pos neut neg etc
-    # amherst_average(W.word_dict,'Data/twitter/amherst.test.pred')
+
+    # amherst_average_score(W.amherst_dict,'Data/twitter/amherst.test.pred')
