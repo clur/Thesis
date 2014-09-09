@@ -21,6 +21,8 @@ class Words(object):
     def __init__(self):
         self.amherst_dict = defaultdict(list)  # keys are ratings, values lists of words
         self.sentiword_dict = defaultdict()  # keys are words from sentinet, values are ratings
+        self.rating_amherst_dict = defaultdict(list)
+        self.rating_sentiword_dict = defaultdict()
 
     def build_dict_amherst(self, cat=True):
         """make rating dictionary, k=w, v=rating that word most frequently has
@@ -38,7 +40,7 @@ class Words(object):
                 g = group[group.Freq == group.Freq.max()]  # g is row in df with highest freq
                 token = g.Token.values[0]
                 cat = g.Cat.values[0]
-                self.amherst_dict[cat].append(token)
+                self.rating_amherst_dict[cat].append(token)
         else:  # 5 classes
             print '5 classes: rating 1 to 5'
             grouped = df.groupby('Token')
@@ -47,10 +49,12 @@ class Words(object):
                 g = group[group.Freq == group.Freq.max()]  # g is row in df with highest freq
                 token = g.Token.values[0]
                 rating = g.Rating.values[0]
-                self.amherst_dict[rating].append(token)
-        values = set(a for b in self.amherst_dict.values() for a in b)
+                self.rating_amherst_dict[rating].append(token)
+        values = set(a for b in self.rating_amherst_dict.values() for a in b)
         self.amherst_dict = dict(
-            (new_key, [key for key, value in self.amherst_dict.items() if new_key in value][0]) for new_key in values)
+            (new_key, [key for key, value in self.rating_amherst_dict.items() if new_key in value][0]) for new_key in
+            values)
+
 
     def build_dict_sentiword(self):
         """
@@ -75,7 +79,6 @@ class Words(object):
         for w, scores in grouped:
             self.sentiword_dict[w] = tuple(scores.mean().tolist())  # order is P,N,O
             # entries are form  ('beduin', 'n'), values [P,N,O]
-
 
     def to_json_amherst(self, outf):
         '''
