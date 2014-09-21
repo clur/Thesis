@@ -55,24 +55,21 @@ def print_top10(vectorizer, clf, class_labels):
 def bow_clf_twitter(trainfile, testfile, clf):
     '''read in train and test file and perform classification experiment with sklearn bow features and clf'''
 
-    tr_data, tr_target = load_twitter(trainfile)  # only pos and neg
-    te_data, te_target = load_twitter(testfile)
-    mapping = {'negative': -1, 'neutral': 0, 'positive': 1}
-    # mapping={'negative':-1,'positive':1}
+    mapping = {u'positive': 1, u'negative': -1}
+
+    tr_data, tr_target = load_twitter_2class('Data/twitter/twitter.train')
+    te_data, te_target = load_twitter_2class('Data/twitter/twitter.test')
+
 
     tr_target = [mapping[t] for t in tr_target]
     te_target = [mapping[t] for t in te_target]
     # print tr_data[0]
-    vec = tf(ngram_range=(1, 1), stop_words='english')  # basic tfidf vectorizer
+    vec = tf(ngram_range=(1, 1))  # basic tfidf vectorizer
     print vec
-    print 'TFIDF FITTING'
     vec.fit(tr_data)
-    print 'TFIDF FIT'
-    print 'TFIDF TRANSFORMING'
     X_train = vec.transform(tr_data)
     X_test = vec.transform(te_data)
-    print 'TRANSFORMED'
-    clf = clf()
+    clf = clf(C=1, loss='l2')
     print clf
     clf.fit(X_train, tr_target)
     print 'data:\ntrain size: %s test size: %s' % (str(len(tr_target)), str(len(te_target)))
@@ -221,6 +218,6 @@ def scorer(true, pred):
 if __name__ == "__main__":
 
     pass
-    for clf in [nb, log, svm]:
+    for clf in [svm]:
         bow_clf_twitter('Data/twitter/twitter.train', 'Data/twitter/twitter.test', clf)
         print '-' * 10

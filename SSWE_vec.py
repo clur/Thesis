@@ -47,11 +47,11 @@ def vectorize_sswe(data, embedding_dict):
             except:
                 pass
         avg = (np.mean(score, axis=0))
-        max = (np.max(score, axis=0))
-        min = (np.max(score, axis=0))
-        all = np.concatenate((avg, max, min))
+        # max = (np.max(score, axis=0))
+        # min = (np.max(score, axis=0))
+        # all = np.concatenate((avg, max, min))
         # print len(all)
-        vectors.append(all)
+        vectors.append(avg)
     return vectors
 
 
@@ -96,6 +96,7 @@ if __name__ == "__main__":
     for clf in [nb, log, svm]:
         embed_clf_twitter('Data/twitter/twitter.train', 'Data/twitter/twitter.test',
                           'Data/duyu_tang_embedding-results/sswe-h.txt', clf)
+
         print '-' * 10
         embed_clf_twitter('Data/twitter/twitter.train', 'Data/twitter/twitter.test',
                           'Data/duyu_tang_embedding-results/sswe-r.txt', clf)
