@@ -105,9 +105,10 @@ for t in xrange(num_batches):
 
 cPickle.dump(model.R.get_value(), open('first_embeddings.pickle', 'wb'))
 
-# inv_vocab = {v: k for k, v in vocab.items()}
-# with open('word_embeddings.txt','w') as f:
-# for i in inv_vocab.iterkeys():
-#         f.write(inv_vocab[i])
-#         f.write(' '.join([str(r) for r in model.R.get_value()]))
-#         f.write('\n')
+inv_vocab = {v: k for k, v in vocab.items()}
+cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
+with open('word_embeddings.txt', 'w') as f:
+    for i in inv_vocab.iterkeys():
+        f.write(inv_vocab[i] + ' ')
+        f.write(' '.join([str(r) for r in model.R.get_value()[i]]))
+        f.write('\n')
