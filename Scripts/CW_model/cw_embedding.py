@@ -81,6 +81,7 @@ n_hidden = K
 num_context = words_x.shape[1]
 V = len(vocab)
 
+
 # create unigram distribution from top words file, used for noise generation
 wfreq = open('top words.txt', 'r').readlines()
 wfreq = [w.strip().split(':') for w in wfreq]
