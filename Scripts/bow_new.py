@@ -1,3 +1,5 @@
+import cPickle
+
 __author__ = 'claire'
 
 # from numpy.random import random_sample
@@ -21,18 +23,19 @@ def load_amazon(fname):
     :param fname: filename to read
     :return: data, list and target, list
     """
-    raw = codecs.open(fname, 'r','utf8').readlines()  # load and split data into reviews
+    target = []
+    data = []
+    raw = codecs.open(fname, 'r', 'utf8')  # load and split data into reviews
     # random.shuffle(raw)
-    target=[]
-    data=[]
     for r in raw:
         try:
             target.append(int(float(r.split('\t')[5])))
             data.append(''.join(r.split('\t')[6:]))
         except:
-            print r
+            pass
+    raw.close()
     mapping = {1: -1, 2: -1, 4: 1, 5: 1}
-    target=[mapping[t] for t in target]
+    target = [mapping[t] for t in target]
     assert len(target) == len(data)
     return data, target
 
@@ -54,11 +57,9 @@ def load_twitter_2class(fname):
     return data, target
 
 
-
-
 if __name__ == "__main__":
-    trainfile='/Users/claire/Desktop/MODELS/pos_neg.txt'
-    testfile='Data/twitter/twitter.test'
+    trainfile = 'Data/amazon_embeddings/pos_neg.txt'
+    testfile = 'Data/twitter/twitter.test'
     tr_data, tr_target = load_amazon(trainfile)
     te_data, te_target = load_twitter_2class(testfile)
     # print tr_data[0]
@@ -66,18 +67,29 @@ if __name__ == "__main__":
     print vec
     print 'TFIDF FITTING'
     vec.fit(tr_data)
+    print len(vec.vocabulary_)
+    cPickle.dump(vec.vocabulary_, open('tf.vocabulary', 'wb'))
     print 'TFIDF FIT'
     print 'TFIDF TRANSFORMING'
     X_train = vec.transform(tr_data)
     X_test = vec.transform(te_data)
     print 'TRANSFORMED'
-    clf = log()
-    print clf
-    clf.fit(X_train, tr_target)
-    print 'data:\ntrain size: %s test size: %s' % (str(len(tr_target)), str(len(te_target)))
-    print 'train set class representation:' + str(Counter(tr_target))
-    print 'test set class representation: ' + str(Counter(te_target))
-    print '\nclassifier\n----'
-    print 'Accuracy on train:', clf.score(X_train, tr_target)
-    print 'Accuracy on test:', clf.score(X_test, te_target)
-    print '\nReport\n', classification_report(te_target, clf.predict(X_test))
+    for i in [log, svm]:
+        clf = i()
+        print clf
+        clf.fit(X_train, tr_target)
+        print 'data:\ntrain size: %s test size: %s' % (str(len(tr_target)), str(len(te_target)))
+        print 'train set class representation:' + str(Counter(tr_target))
+        print 'test set class representation: ' + str(Counter(te_target))
+        print '\nclassifier\n----'
+        print 'Accuracy on train:', clf.score(X_train, tr_target)
+        print 'Accuracy on test:', clf.score(X_test, te_target)
+        print '\nReport\n', classification_report(te_target, clf.predict(X_test))
+        print 'F1 score', f1_score(te_target, clf.predict(X_test), pos_label=None, average='macro')
+
+
+
+        # anders twitter text 200k
+        # train=open('Data/twitter_emoticon_embeddings/posneg_200k.labeled','r').readlines()
+        # tr_target=[int(i.split()[0]) for i in train]
+        # tr_data=[' '.join(i.split()[3:]) for i in train]

@@ -1,9 +1,10 @@
+from average_sentiment_lexicons import postag_replace
+
 __author__ = 'claire'
 import codecs
 from sklearn.linear_model.stochastic_gradient import SGDClassifier as sgd
 from sklearn.grid_search import GridSearchCV
 from sklearn.pipeline import Pipeline
-# from numpy.random import random_sample
 from sklearn.naive_bayes import BernoulliNB as nb
 from sklearn.feature_extraction.text import TfidfVectorizer as tf
 from sklearn.linear_model import LogisticRegression as log
@@ -107,6 +108,8 @@ def load_twitter_2class(fname):
     data = [r.split('\t')[3] for r in raw]  # review text
     data = [d.lower().strip() for d in data]
     target = [t for t in target if t != 0]
+    mapping = {u'positive': 1, u'negative': - 1}
+    target = [mapping[t] for t in target]
     return data, target
 
 
@@ -193,7 +196,7 @@ def bow_clf_amazon(trainfile, testfile):
     # with open('twitter.train_predict','w') as f:
     # for i in x:
     # f.write(str(i))
-    #         f.write('\n')
+    # f.write('\n')
     print 'data:\ntrain size: %s test size: %s' % (str(len(tr_target)), str(len(te_target)))
     print 'train set class representation:' + str(Counter(tr_target))
     print 'test set class representation: ' + str(Counter(te_target))
@@ -201,7 +204,6 @@ def bow_clf_amazon(trainfile, testfile):
     print 'Accuracy on train:', clf.score(X_train, tr_target)
     print 'Accuracy on test:', clf.score(X_test, te_target)
     print '\nReport\n', classification_report(te_target, clf.predict(X_test))
-
 
 
 def bow_clf_twitter_grid(trainfile, testfile):
@@ -256,27 +258,6 @@ def tokenize(text):
     return token_pattern.findall(text)
 
 
-def vectorize_gensim(data, modelname):
-    """
-    :param data: data is a list of strings, each string is a document
-    :return: a sparse array of vectors representing word embeddings for words in word2vec model according to the modelname
-    """
-    model = gensim.models.Word2Vec.load(modelname)
-    new_data = []
-    # oovdic=defaultdict(int)
-    blank = np.ndarray(model.layer1_size)  # TODO check this makes sense for comparisons
-    for i in data:  # for each document
-        new_vec = []
-        for j in tokenize(i):  #for each word in the document
-            try:
-                new_vec.append(model[j])  #add the model representation of the word/ the embedding
-            except:
-                new_vec.append(blank)  # to ensure document vectors are same size
-                # oovdic[j]+=1
-        new_data.append(new_vec)
-    # print oovdic
-    return new_data
-
 def avg_senti(text, word_dict):
     """
     as below using senti word dict values
@@ -291,7 +272,7 @@ def avg_senti(text, word_dict):
         try:
             k = tuple(i.split('_'))
             val = word_dict[k]
-            val = val[:2]  #ignore the objective score
+            val = val[:2]  # ignore the objective score
             scores.append(val)
             print i, val
         except:
@@ -304,7 +285,7 @@ def avg_senti(text, word_dict):
         else:
             result = np.argmax(avg)
     else:
-        result = 2  #all words are oov, assign to neutral
+        result = 2  # all words are oov, assign to neutral
     return result
 
 
@@ -322,7 +303,7 @@ def avg_senti3(text, word_dict):
         try:
             k = tuple(i.split('_'))
             val = word_dict[k]
-            val = val[:2]  #ignore the objective score
+            val = val[:2]  # ignore the objective score
             scores.append(val)
             print i, val
         except:
@@ -331,12 +312,12 @@ def avg_senti3(text, word_dict):
         avg = np.mean(scores, axis=0)
         print 'AVG:', avg
         argmax = np.argmax(avg)
-        if avg[0] == avg[1] or avg[np.argmax(avg)] < 0.1:  #lower than a threshold gets marked as neutral
+        if avg[0] == avg[1] or avg[np.argmax(avg)] < 0.1:  # lower than a threshold gets marked as neutral
             result = 2
         else:
             result = np.argmax(avg)
     else:
-        result = 2  #all words are oov, assign to neutral
+        result = 2  # all words are oov, assign to neutral
     return result
 
 
@@ -379,6 +360,7 @@ def avg_amherst(text, word_dict):
     # print text
     # print
     return np.mean(score)
+
 
 def write_targets_amherst_avg(test_data, word_dict, outf):
     """

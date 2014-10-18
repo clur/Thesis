@@ -66,7 +66,7 @@ def sanity_check(x, y, inv_vocab):
 
 if __name__ == "__main__":
 
-    file = '/Users/claire/Dropbox/PycharmProjects/WordEmbeddings/CW_model/wikipedia/padded_full.txt'
+    file = '/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/Data/CW_data/wikipedia/padded_full.txt'
     # vocab=get_vocab(file, v=20000)
 
     # use list already extracted to speed things up
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     Y = []
     X = []
     window = 2
-    N = 20000  #sentences to consider
+    N = 200000  # sentences to consider
 
     s = 0
     for sentence in text:
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         s += 1
         if len(sentence) > window * 2 + 4:  # must have at least 2*window+1 length
             for idx in range(window, len(sentence) - window):
-                Y.append(mapping([sentence[idx]]))
+                Y.append(mapping(sentence[idx]))
                 X.append(mapping(sentence[idx - window:idx] + sentence[idx + 1:idx + 1 + window]))
 
     with open('X.pickle', 'wb') as handle:

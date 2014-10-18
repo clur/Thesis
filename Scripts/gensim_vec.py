@@ -140,7 +140,7 @@ def vectorize_gensim(data, model):
         for j in tokenize(i):  # for each word in the document
             # print 'word:',j,
             try:
-                new_vec.append(model[j.lower()])  #add the model representation of the word => the embedding
+                new_vec.append(model[j.lower()])  # add the model representation of the word => the embedding
             except:
                 pass
         avg = (np.mean(new_vec, axis=0))
@@ -170,6 +170,17 @@ def plot_words(words, model):
     plt.show()
 
 
+def write_embeddings(model, fname):
+    with codecs.open(fname, 'wb') as fout:
+        # fout.write(utils.to_utf8("%s %s\n" % self.syn0.shape))
+        # store in sorted order: most frequent words at the top
+        for word, vocab in sorted(model.vocab.iteritems(), key=lambda item: -item[1].count):
+            row = model.syn0[vocab.index]
+            # if binary:
+            # fout.write(utils.to_utf8(word) + b" " + row.tostring())
+            fout.write("%s %s\n" % (word, ' '.join("%f" % val for val in row)))
+
+
 def train(fname):
     start = time.time()
     print 'training model on ' + fname
@@ -193,11 +204,9 @@ if __name__ == "__main__":
     tr_target = [mapping[t] for t in tr_target]
     te_target = [mapping[t] for t in te_target]
 
-
     pos = 'Data/models/out_pos_equal.txt.model'
     neg = 'Data/models/out_neg.txt.model'
     both = 'Data/models/pos_neg.txt.model'
-
 
     pos_model = gensim.models.Word2Vec.load(pos)
     neg_model = gensim.models.Word2Vec.load(neg)
@@ -222,10 +231,10 @@ if __name__ == "__main__":
     both_oov = np.mean(allvec, axis=0)  # value when word has no embedding
 
     pnboth_oov = np.array([p_oov, n_oov,
-                           both_oov])  #todo need to check if this makes sense or can just use pn_oov here? embedding is different learned from the combined text so i think this might be necessary
+                           both_oov])  # todo need to check if this makes sense or can just use pn_oov here? embedding is different learned from the combined text so i think this might be necessary
 
     # embedding stuff
-    #review-uni_10.model is trained from unigrams, 10 million lines of words generated from amherst data
+    # review-uni_10.model is trained from unigrams, 10 million lines of words generated from amherst data
     # X_train = vectorize_gensim(tr_data, model)
     # X_test = vectorize_gensim(te_data, model)
 

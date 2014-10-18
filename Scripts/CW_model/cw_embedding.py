@@ -3,22 +3,28 @@ import numpy as np
 from theano import tensor as T
 import cPickle
 from collections import OrderedDict
+from scipy import stats
+
 
 class CW(object):
-    def __init__(self, X, y, y_noise, V, K, num_context, n_hidden, unigram):
+    def __init__(self, X, y, y_noise, V, K, num_context, n_hidden):
         """
         :param X: matrix of (B, H) input context word ids
         :param y: projection of target word
         :param V: size of vocabulary
         :param K: dimensionality of embeddings
         :param n_hidden: size of hidden layer
-        :param unigram: (V,1)-vector of unigram word probabilities
         """
 
         n_in = (num_context + 1) * K  # number of context words
         print 'n_in', n_in
+        print 'n_hidden', n_hidden
+        print 'Shapes:'
+        print 'R:', V, 'x', K
+        print 'W1:', n_in, 'x', n_hidden
+        print 'W2:', n_hidden, 'x', 1
+
         randn = np.random.randn
-        self.unigram = unigram
         self.R = theano.shared(value=randn(V, K), name='R')
         self.hidden_bias = theano.shared(value=np.zeros((n_hidden,)), name='bias')
         self.W1 = theano.shared(value=randn(n_in, n_hidden), name='W1')
@@ -55,60 +61,76 @@ class CW(object):
         return self.hinge_loss(s_pos, s_neg)
 
 
-data = '/Users/claire/Dropbox/PycharmProjects/Thesis/Data/CW_data/'
-K = 40
-B = 10
+def gen_noise(distribution, shape0):
+    """
+    use the 'unigram' distribution to generate noise words from the vocabulary.
+    the size will be (B,1)
+    """
+    return distribution.rvs(size=(shape0, 1))
+
+# load pickled context file, target file and vocab file
+data = '/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/CW_model/'
+words_x = cPickle.load(open(data + 'X.pickle', 'rb'))  # context words
+words_y = cPickle.load(open(data + 'Y.pickle', 'rb'))  # target words
+vocab = cPickle.load(open(data + 'vocab.pickle', 'rb'))  # maps words to integer ids, most frequent word id=0 etc.
+print 'loaded data'
+# set sizes
+K = 40  # embedding size
+B = 10  # batchsize
 n_hidden = K
-words_x = cPickle.load(open(data + 'Xs.pickle', 'rb'))
-words_y = cPickle.load(open(data + 'ys.pickle', 'rb'))
-vocab = cPickle.load(open(data + 'vocab.pickle', 'rb'))
 num_context = words_x.shape[1]
-print 'num_context', num_context
 V = len(vocab)
-unigram = np.ones((V,1)) / (1.*V)
 
-# print 'words_x shape:', words_x.shape
-# print 'words_y shape:', words_y.shape
-# print 'len vocab:', V
+# create unigram distribution from top words file, used for noise generation
+wfreq = open('top words.txt', 'r').readlines()
+wfreq = [w.strip().split(':') for w in wfreq]
+total = sum([int(w[1]) for w in wfreq])  # should this be the total number of tokens in the file??
+dist = [(float(w[1]) / sum) * 1.0 for w in wfreq]
+unigram = stats.rv_discrete(name='unigram', values=(np.arange(), dist))
 
+
+# symbolic variables to pass to theano function
 X = T.lmatrix(name='X2')
 y = T.lmatrix(name='y2')
 y_noise = T.lmatrix(name='ynoise')
 
-model = CW(X, y, y_noise, V, K, num_context, n_hidden, unigram)
 
+# instantiate model object
+model = CW(X, y, y_noise, V, K, num_context, n_hidden)
+
+# Gradient descent
 updates = OrderedDict()
-lr = 1e-3
-grads = T.grad(model.cost, model.params)
-for p,g in zip(model.params, grads):
+lr = 1e-3  # learning rate
+grads = T.grad(model.cost,
+               model.params)  # self.cost = self.get_cost(X, y, y_noise), self.params = [self.R, self.W1, self.hidden_bias, self.W2]
+for p, g in zip(model.params, grads):  # TODO understand how this works with LR theano example
     updates[p] = p - lr * g
 
+# train function
 train = theano.function([X, y, y_noise],
                         [model.cost],
                         updates=updates)
-def gen_noise():
-    return np.random.randint(low=0, high=V, size=(B, 1))
 
 
+# actual loop that performs training
 num_batches = words_x.shape[0] / B
 for t in xrange(num_batches):
+    #TODO add stopping criteria
     start_idx = t * B
     end_idx = (t+1) * B
     x_batch = words_x[start_idx:end_idx].astype('int32')
     y_batch = words_y[start_idx:end_idx].astype('int32')
-    y_noise_batch = gen_noise()
+    y_noise_batch = gen_noise(unigram, B)
     # print 'y_noise:', y_noise_batch.shape
     # print 'x_batch:',x_batch.shape
     # print 'y_batch:',y_batch.shape
     cost = train(x_batch, y_batch, y_noise_batch)[0]
     print "Batch: %d / cost = %.4f" % (t, cost)
 
-cPickle.dump(model.R.get_value(), open('first_embeddings.pickle', 'wb'))
-
+# TODO steal something that nicely generates the text files in the same format as word2vec
+# save embeddings learned
+# cPickle.dump(model.R.get_value(), open('first_embeddings.pickle', 'wb'))
+np.savetxt('embeddings.txt', model.R.get_value())
 inv_vocab = {v: k for k, v in vocab.items()}
-cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
-with open('word_embeddings.txt', 'w') as f:
-    for i in inv_vocab.iterkeys():
-        f.write(inv_vocab[i] + ' ')
-        f.write(' '.join([str(r) for r in model.R.get_value()[i]]))
-        f.write('\n')
+labels = [i for i in inv_vocab.itervalues()]
+np.savetxt('labels.txt', labels)
