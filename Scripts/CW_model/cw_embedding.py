@@ -86,8 +86,8 @@ V = len(vocab)
 wfreq = open('top words.txt', 'r').readlines()
 wfreq = [w.strip().split(':') for w in wfreq]
 total = sum([int(w[1]) for w in wfreq])  # should this be the total number of tokens in the file??
-dist = [(float(w[1]) / sum) * 1.0 for w in wfreq]
-unigram = stats.rv_discrete(name='unigram', values=(np.arange(), dist))
+dist = [(float(w[1]) / total) * 1.0 for w in wfreq]
+unigram = stats.rv_discrete(name='unigram', values=(np.arange(len(dist)), dist))
 
 
 # symbolic variables to pass to theano function
