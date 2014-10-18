@@ -131,7 +131,15 @@ for t in xrange(num_batches):
 # TODO steal something that nicely generates the text files in the same format as word2vec
 # save embeddings learned
 # cPickle.dump(model.R.get_value(), open('first_embeddings.pickle', 'wb'))
-np.savetxt('embeddings.txt', model.R.get_value())
+# np.savetxt('embeddings.txt', model.R.get_value())
+# inv_vocab = {v: k for k, v in vocab.items()}
+# labels = [i for i in inv_vocab.itervalues()]
+# np.savetxt('labels.txt', labels)
+
 inv_vocab = {v: k for k, v in vocab.items()}
-labels = [i for i in inv_vocab.itervalues()]
-np.savetxt('labels.txt', labels)
+cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
+with open('word_embeddings.txt', 'w') as f:
+    for i in inv_vocab.iterkeys():
+        f.write(inv_vocab[i] + ' ')
+        f.write(' '.join([str(r) for r in model.R.get_value()[i]]))
+        f.write('\n')
