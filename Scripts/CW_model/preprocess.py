@@ -95,12 +95,13 @@ if __name__ == "__main__":
         s += 1
         if len(sentence) > window * 2 + 4:  # must have at least 2*window+1 length
             for idx in range(window, len(sentence) - window):
-                Y.append(mapping(sentence[idx]))
+                Y.append(mapping([sentence[idx]]))
+                # print 'y: %s mapping: %s' % (sentence[idx], mapping([sentence[idx]]))
                 X.append(mapping(sentence[idx - window:idx] + sentence[idx + 1:idx + 1 + window]))
 
-    with open('X.pickle', 'wb') as handle:
+    with open('Xs.pickle', 'wb') as handle:
         cPickle.dump(np.array(X),handle)
-    with open('Y.pickle', 'wb') as handle:
+    with open('Ys.pickle', 'wb') as handle:
         cPickle.dump(np.array(Y),handle)
 
     #perform sanity check
