@@ -30,10 +30,12 @@ def load_amazon(fname):
     for r in raw:
         try:
             target.append(int(float(r.split('\t')[5])))
-            data.append(''.join(r.split('\t')[6:]))
+            data.append(''.join(r.split('\t')[6:]).lower())
         except:
             pass
     raw.close()
+    # cPickle.dump(data,open('amazon_posneg.data','wb'))
+    # cPickle.dump(target,open('amazon_posneg.target','wb'))
     mapping = {1: -1, 2: -1, 4: 1, 5: 1}
     target = [mapping[t] for t in target]
     assert len(target) == len(data)
@@ -59,16 +61,18 @@ def load_twitter_2class(fname):
 
 if __name__ == "__main__":
     trainfile = 'Data/amazon_embeddings/pos_neg.txt'
+    # trainfile = 'Data/twitter/twitter.train'
     testfile = 'Data/twitter/twitter.test'
     tr_data, tr_target = load_amazon(trainfile)
+    # tr_data, tr_target = load_twitter_2class(trainfile)
     te_data, te_target = load_twitter_2class(testfile)
     # print tr_data[0]
-    vec = tf(ngram_range=(1, 1), stop_words='english')  # basic tfidf vectorizer
+    vec = tf(ngram_range=(1, 1), min_df=2)  # basic tfidf vectorizer
     print vec
     print 'TFIDF FITTING'
     vec.fit(tr_data)
     print len(vec.vocabulary_)
-    cPickle.dump(vec.vocabulary_, open('tf.vocabulary', 'wb'))
+    cPickle.dump(vec.vocabulary_, open('amazon_posneg.vocab', 'w'))
     print 'TFIDF FIT'
     print 'TFIDF TRANSFORMING'
     X_train = vec.transform(tr_data)

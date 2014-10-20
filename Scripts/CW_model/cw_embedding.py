@@ -4,7 +4,7 @@ from theano import tensor as T
 import cPickle
 from collections import OrderedDict
 from scipy import stats
-
+import matplotlib.pyplot as plt
 
 class CW(object):
     def __init__(self, X, y, y_noise, V, K, num_context, n_hidden):
@@ -69,9 +69,14 @@ def gen_noise(distribution, shape0):
     return distribution.rvs(size=(shape0, 1))
 
 # load pickled context file, target file and vocab file
+print 'loading data'
 data = '/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/CW_model/'
-words_x = cPickle.load(open(data + 'X.pickle', 'rb'))  # context words
-words_y = cPickle.load(open(data + 'Y.pickle', 'rb'))  # target words
+words_x = cPickle.load(open(data + 'Xs.pickle', 'rb'))  # context words
+words_y = cPickle.load(open(data + 'Ys.pickle', 'rb'))  # target words
+print 'loaded data'
+print words_y[:5]
+print words_y.shape
+assert words_x.shape[0] == len(words_y)
 vocab = cPickle.load(open(data + 'vocab.pickle', 'rb'))  # maps words to integer ids, most frequent word id=0 etc.
 print 'loaded data'
 # set sizes
@@ -102,16 +107,21 @@ model = CW(X, y, y_noise, V, K, num_context, n_hidden)
 # Gradient descent
 updates = OrderedDict()
 lr = 1e-3  # learning rate
-grads = T.grad(model.cost,
-               model.params)  # self.cost = self.get_cost(X, y, y_noise), self.params = [self.R, self.W1, self.hidden_bias, self.W2]
+grads = T.grad(cost=model.cost,
+               wrt=model.params)  # self.cost = self.get_cost(X, y, y_noise), self.params = [self.R, self.W1, self.hidden_bias, self.W2]
 for p, g in zip(model.params, grads):  # TODO understand how this works with LR theano example
     updates[p] = p - lr * g
 
 # train function
-train = theano.function([X, y, y_noise],
-                        [model.cost],
+train = theano.function(inputs=[X, y, y_noise],
+                        outputs=[model.cost],
                         updates=updates)
 
+validate = theano.function(inputs=[X, y, y_noise],
+                           outputs=[model.cost],
+                           updates=updates)
+
+# v_cost=[]#for plotting global cost
 
 # actual loop that performs training
 num_batches = words_x.shape[0] / B
@@ -119,6 +129,7 @@ for t in xrange(num_batches):
     #TODO add stopping criteria
     start_idx = t * B
     end_idx = (t+1) * B
+    print 'start %d, end %d' % (start_idx, end_idx)
     x_batch = words_x[start_idx:end_idx].astype('int32')
     y_batch = words_y[start_idx:end_idx].astype('int32')
     y_noise_batch = gen_noise(unigram, B)
@@ -126,8 +137,21 @@ for t in xrange(num_batches):
     # print 'x_batch:',x_batch.shape
     # print 'y_batch:',y_batch.shape
     cost = train(x_batch, y_batch, y_noise_batch)[0]
+    if t % 10 == 0:
+        with(open('validation.cost', 'a')) as f:
+            validation_cost = validate(words_x, words_y, gen_noise(unigram, len(words_y)))[0]
+            f.write(str(validation_cost) + '\n')
+            # v_cost.append(float(validate(words_x, words_y, gen_noise(unigram, len(words_y)))[0]))
     print "Batch: %d / cost = %.4f" % (t, cost)
 
+'''
+cPickle.dump(v_cost,open('v_cost','w'))
+plt.plot(range(len(v_cost)),v_cost)
+
+plt.xlabel('iters')
+plt.ylabel('accuracy')
+plt.show()
+'''
 # TODO steal something that nicely generates the text files in the same format as word2vec
 # save embeddings learned
 # cPickle.dump(model.R.get_value(), open('first_embeddings.pickle', 'wb'))

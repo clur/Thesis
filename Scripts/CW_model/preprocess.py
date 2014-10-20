@@ -78,17 +78,17 @@ if __name__ == "__main__":
         idx += 1
     vocab['UNK'] = len(vocab)
     vocab['zpaddingz'] = len(vocab)
-    with open('vocab.pickle','wb') as handle:
-        cPickle.dump(vocab,handle)
-    text = MyTokens(file)  #text is list of list of tokens
+    with open('vocab.pickle', 'wb') as handle:
+        cPickle.dump(vocab, handle)
+    text = MyTokens(file)  # text is list of list of tokens
     Y = []
     X = []
     window = 2
-    N = 200000  # sentences to consider
+    N = 2000000  # sentences to consider
 
     s = 0
     for sentence in text:
-        if s%10000==0:
+        if s % 10000 == 0:
             print '%s sentences processed' % s
         if s >= N:
             break
@@ -100,12 +100,12 @@ if __name__ == "__main__":
                 X.append(mapping(sentence[idx - window:idx] + sentence[idx + 1:idx + 1 + window]))
 
     with open('Xs.pickle', 'wb') as handle:
-        cPickle.dump(np.array(X),handle)
+        cPickle.dump(np.array(X), handle)
     with open('Ys.pickle', 'wb') as handle:
-        cPickle.dump(np.array(Y),handle)
+        cPickle.dump(np.array(Y), handle)
 
-    #perform sanity check
-    # for i in range(len(Y)):
-    #     inv_vocab = {v: k for k, v in vocab.items()}
-    #     sanity_check(X[i], Y[i][0], inv_vocab)
+        # perform sanity check
+        # for i in range(len(Y)):
+        #     inv_vocab = {v: k for k, v in vocab.items()}
+        #     sanity_check(X[i], Y[i][0], inv_vocab)
 
