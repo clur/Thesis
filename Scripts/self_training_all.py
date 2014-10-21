@@ -9,6 +9,8 @@ import codecs
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+
 # Load datasets
 train, y_train = load_twitter_2class('Data/twitter/twitter.train')
 test, y_test = load_twitter_2class('Data/twitter/twitter.dev')
@@ -47,9 +49,11 @@ def totarget(i):
 
 print 'initial shapes (train, unlabeled)', X_train.shape, len(y_train), X_U.shape
 threshold = 0.5
-iters = 100
-scores = []  #keep track of how it changes according to the development set
+iters = 50
+scores = []  # keep track of how it changes according to the development set
 scores.append(clf.score(X_test, y_test))
+start_size = X_train.shape[0]
+print 'Start train set size: %d' % start_size
 for i in range(iters):
     # print clf.predict(i)
     distance = clf.decision_function(X_U)  # the distance (- or +) from the hyperplane
@@ -64,7 +68,7 @@ for i in range(iters):
     clf.fit(X_train, y_train)
     if i % 10 == 0:
         scores.append(clf.score(X_test, y_test))
-        print 'train set size: %d' % X_train.shape[0]
+        print 'added: %d data points' % X_train.shape[0] - start_size
         print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
 
 print clf.score(X_test, y_test)

@@ -84,7 +84,7 @@ if __name__ == "__main__":
     Y = []
     X = []
     window = 2
-    N = 2000000  # sentences to consider
+    N = 100000  # sentences to consider
 
     s = 0
     for sentence in text:
@@ -99,13 +99,13 @@ if __name__ == "__main__":
                 # print 'y: %s mapping: %s' % (sentence[idx], mapping([sentence[idx]]))
                 X.append(mapping(sentence[idx - window:idx] + sentence[idx + 1:idx + 1 + window]))
 
-    with open('Xs.pickle', 'wb') as handle:
+    with open('X_' + str(len(X)) + '.pickle', 'wb') as handle:
         cPickle.dump(np.array(X), handle)
-    with open('Ys.pickle', 'wb') as handle:
+    with open('Y_' + str(len(X)) + '.pickle', 'wb') as handle:
         cPickle.dump(np.array(Y), handle)
 
         # perform sanity check
         # for i in range(len(Y)):
-        #     inv_vocab = {v: k for k, v in vocab.items()}
+        # inv_vocab = {v: k for k, v in vocab.items()}
         #     sanity_check(X[i], Y[i][0], inv_vocab)
 
