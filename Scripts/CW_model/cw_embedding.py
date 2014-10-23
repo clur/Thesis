@@ -85,7 +85,7 @@ vocab = cPickle.load(open(data + 'vocab.pickle', 'rb'))  # maps words to integer
 print 'loaded data'
 # set sizes
 K = 40  # embedding size
-B = 50  # batchsize
+B = 20  # batchsize
 n_hidden = K
 num_context = words_x.shape[1]
 V = len(vocab)
@@ -136,12 +136,13 @@ for t in xrange(num_batches):
     y_batch = words_y[start_idx:end_idx].astype('int32')
     y_noise_batch = gen_noise(unigram, B)
     cost = train(x_batch, y_batch, y_noise_batch)[0]
-    if t % 100 == 0:
+    # if t % 100 == 0:
+    if num_batches % 10 == 0:
+        print "Batch: %d (of %d)/ cost = %.4f" % (t, num_batches, cost)
         with(open('validation.cost', 'a')) as f:  # write the validation cost for the whole set to file
             validation_cost = validate(words_x, words_y, gen_noise(unigram, len(words_y)))[0]
             f.write(str(validation_cost) + '\n')
             # v_cost.append(float(validate(words_x, words_y, gen_noise(unigram, len(words_y)))[0]))
-    print "Batch: %d (of %d)/ cost = %.4f" % (t, num_batches, cost)
 
 print "took :", time.time() - start
 # start 455080, end 455100
@@ -156,22 +157,24 @@ print "took :", time.time() - start
 # save embeddings learned
 inv_vocab = {v: k for k, v in vocab.items()}
 # cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
-with open('word_embeddings.txt', 'w') as f:
+with open('word_embeddings2.txt', 'w') as f:
     for i in inv_vocab.iterkeys():
         f.write(inv_vocab[i] + ' ')
         f.write(' '.join([str(r) for r in model.R.get_value()[i]]))
         f.write('\n')
 
 
-def plot_validation(fname):
+def plot_validation(fname, batchsize):
     y = open('validation.cost').readlines()
     y = [i.strip() for i in y]
     y = [float(i) for i in y]
     x = range(len(y))
-    x = [i * 10 for i in x]
+    x = [i * batchsize for i in x]
+    print x
+    plt.clf()
     plt.plot(x, y)
     plt.xlabel('num_batches')
     plt.ylabel('validation cost')
-    plt.suptitle('Cost over total train set\nBatch size = 20')
+    plt.suptitle('Cost over total train set\nBatch size = %d' % batchsize)
     # plt.show()
     plt.savefig(fname)

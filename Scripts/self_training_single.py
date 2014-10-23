@@ -7,51 +7,57 @@ import codecs
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+def load_unlabeled_twitter(fname):
+    raw = codecs.open(fname, 'r', 'utf8')  # load and split data into reviews
+    return [''.join(r.split('\t')[1:]) for r in raw]
+
+
+def totarget(i):
+    if i < 0:
+        result = -1
+    else:
+        result = 1
+    return result
+
 # Load datasets
 train, y_train = load_twitter_2class('Data/twitter/twitter.train')
 test, y_test = load_twitter_2class('Data/twitter/twitter.dev')
-unlabeled = 'Data/amazon_embeddings/short.txt'
-raw = codecs.open(unlabeled, 'r', 'utf8')  # load and split data into reviews
-U = []
-for r in raw:
-    try:
-        U.append(' '.join(r.split('\t')[6:]).strip())
-    except:
-        pass
-raw.close()
-# random.shuffle(X_U)
-
+unlabeled = load_unlabeled_twitter('Data/twitter_CST/englishtweets.both')
+# unlabeled=unlabeled[:5000]
+random.shuffle(unlabeled)
 # Fit vectorizer with training data and transform datasets
 vec = tf()
 X_train = vec.fit_transform(train)
 X_test = vec.transform(test)
-X_U = vec.transform(U)
+X_U = vec.transform(unlabeled)
 
 
 # train classifier on labeled data
 clf = svc()
 clf.fit(X_train, y_train)
-# print clf.score(X_test,y_test)
-
 
 threshold = 0.5
 added = 0
 scores = []  #keep track of how it changes according to the development set
 for i in range(X_U.shape[0]):
-    # print clf.predict(i)
-    distance = clf.decision_function(X_U[i])  # the distance (- or +) from the hyperplane
-    if abs(distance) > threshold:
-        # print 'adding',U[i]
-        added += 1
-        train.append(U[i])
-        if distance > 0:
-            y_train.append(1)
-        else:
-            y_train.append(-1)
-        vec = tf()
+    print 'iteration %d' % i
+    # find points above threshold to add to training data
+    print 'unlabeled shape', X_U.shape
+    print 'X_train shape', X_train.shape
+    distance = clf.decision_function(X_U)  # the distance (- or +) from the hyperplane
+    idx = np.where(abs(distance) > threshold)[0]  # the indices above the threshold distance
+
+    new = np.random.choice(idx)  # to remove
+    target = map(totarget, [distance[new]])
+    y_train += target
+    print np.array(unlabeled)[new]
+
+    # remove those points from unlabeled
+    unlabeled.pop(new)
     X_train = vec.fit_transform(train)
     X_test = vec.transform(test)
-    X_U = vec.transform(U)
+    X_U = vec.transform(unlabeled)
     clf.fit(X_train, y_train)
     if i % 10 == 0:
         scores.append(clf.score(X_test, y_test))
@@ -64,4 +70,3 @@ plt.plot(range(len(scores)), scores)
 plt.xlabel('iters')
 plt.ylabel('accuracy')
 plt.show()
-
