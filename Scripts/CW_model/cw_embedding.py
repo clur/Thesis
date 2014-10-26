@@ -75,8 +75,8 @@ start = time.time()
 # load pickled context file, target file and vocab file
 print 'loading data'
 data = '/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/CW_model/'
-words_x = cPickle.load(open(data + 'X_455116.pickle', 'rb'))  # context words
-words_y = cPickle.load(open(data + 'Y_455116.pickle', 'rb'))  # target words
+words_x = cPickle.load(open(data + 'X.pickle', 'rb'))  # context words
+words_y = cPickle.load(open(data + 'Y.pickle', 'rb'))  # target words
 print 'loaded data'
 print words_y[:5]
 print words_y.shape
@@ -85,7 +85,7 @@ vocab = cPickle.load(open(data + 'vocab.pickle', 'rb'))  # maps words to integer
 print 'loaded data'
 # set sizes
 K = 40  # embedding size
-B = 20  # batchsize
+B = 10  # batchsize
 n_hidden = K
 num_context = words_x.shape[1]
 V = len(vocab)
@@ -113,7 +113,7 @@ updates = OrderedDict()
 lr = 1e-3  # learning rate
 grads = T.grad(cost=model.cost,
                wrt=model.params)  # self.cost = self.get_cost(X, y, y_noise), self.params = [self.R, self.W1, self.hidden_bias, self.W2]
-for p, g in zip(model.params, grads):  # TODO understand how this works with LR theano example
+for p, g in zip(model.params, grads):
     updates[p] = p - lr * g
 
 # train function
@@ -142,18 +142,12 @@ for t in xrange(num_batches):
         with(open('validation.cost', 'a')) as f:  # write the validation cost for the whole set to file
             validation_cost = validate(words_x, words_y, gen_noise(unigram, len(words_y)))[0]
             f.write(str(validation_cost) + '\n')
-            # v_cost.append(float(validate(words_x, words_y, gen_noise(unigram, len(words_y)))[0]))
 
 print "took :", time.time() - start
 # start 455080, end 455100
 # Batch: 22754 / cost = 1.4434
 # took : 27474.4183152
 
-# plt.xlabel('iters')
-# plt.ylabel('accuracy')
-# plt.show()
-
-# TODO steal something that nicely generates the text files in the same format as word2vec
 # save embeddings learned
 inv_vocab = {v: k for k, v in vocab.items()}
 # cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))

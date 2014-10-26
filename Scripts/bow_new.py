@@ -60,19 +60,17 @@ def load_twitter_2class(fname):
 
 
 if __name__ == "__main__":
-    trainfile = 'Data/amazon_embeddings/pos_neg.txt'
-    # trainfile = 'Data/twitter/twitter.train'
-    testfile = 'Data/twitter/twitter.test'
-    tr_data, tr_target = load_amazon(trainfile)
-    # tr_data, tr_target = load_twitter_2class(trainfile)
+    # trainfile = 'Data/amazon_embeddings/pos_neg.txt'
+    trainfile = 'Data/twitter/twitter.train'
+    testfile = 'Data/twitter/twitter.dev'
+    # tr_data, tr_target = load_amazon(trainfile)
+    tr_data, tr_target = load_twitter_2class(trainfile)
     te_data, te_target = load_twitter_2class(testfile)
     # print tr_data[0]
-    vec = tf(ngram_range=(1, 1), min_df=2)  # basic tfidf vectorizer
+    vec = tf()  # basic tfidf vectorizer
     print vec
     print 'TFIDF FITTING'
     vec.fit(tr_data)
-    print len(vec.vocabulary_)
-    cPickle.dump(vec.vocabulary_, open('amazon_posneg.vocab', 'w'))
     print 'TFIDF FIT'
     print 'TFIDF TRANSFORMING'
     X_train = vec.transform(tr_data)

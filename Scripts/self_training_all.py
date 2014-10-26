@@ -1,4 +1,6 @@
 import cPickle
+from sklearn.metrics import f1_score
+import sys
 
 __author__ = 'claire'
 from utility import load_twitter_2class, load_amazon
@@ -14,7 +16,6 @@ def load_unlabeled_twitter(fname):
     raw = codecs.open(fname, 'r', 'utf8')  # load and split data into reviews
     return [''.join(r.split('\t')[1:]) for r in raw]
 
-
 def totarget(i):
     if i < 0:
         result = -1
@@ -23,9 +24,16 @@ def totarget(i):
     return result
 
 # Load datasets
-train, y_train = load_twitter_2class('Data/twitter/twitter.train')
-test, y_test = load_twitter_2class('Data/twitter/twitter.dev')
-unlabeled = load_unlabeled_twitter('Data/twitter_CST/englishtweets.both')
+train_f = 'Data/twitter/twitter.train'
+test_f = 'Data/twitter/twitter.dev'
+unlabeled_f = 'Data/twitter_CST/englishtweets.both'
+
+train, y_train = load_twitter_2class(train_f)
+test, y_test = load_twitter_2class(test_f)
+unlabeled = load_unlabeled_twitter(unlabeled_f)
+
+name = test_f.split('/')[-1].replace('.', '-')
+
 
 # Fit vectorizer with training data and transform datasets
 vec = tf()
@@ -37,24 +45,16 @@ X_U = vec.transform(unlabeled)
 # train classifier on labeled data
 clf = svc()
 clf.fit(X_train, y_train)
-print 'initial shapes (train, unlabeled)', X_train.shape, len(y_train), X_U.shape
-threshold = 0.5
-iters = 2
+threshold = float(sys.argv[1])
+iters = 30
 scores = []  # keep track of how it changes according to the development set
-scores.append(clf.score(X_test, y_test))
+scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
+print scores
 start_size = X_train.shape[0]
-print 'Start train set size: %d' % start_size
 for i in range(iters):
-    # print clf.predict(i)
+    # find points above threshold to add to training data
     distance = clf.decision_function(X_U)  # the distance (- or +) from the hyperplane
-    print [(i, j) for i, j in enumerate(abs(distance[:5]))]
-    print abs(distance[:5])
-    print np.argsort(abs(distance[:5]))
-
     idx = np.where(abs(distance) > threshold)[0]
-    print len(idx)
-    break
-    '''
     target = map(totarget, distance[idx])
     y_train+=target
     train+=np.array(unlabeled)[idx]
@@ -65,16 +65,18 @@ for i in range(iters):
     X_test = vec.transform(test)
     X_U = vec.transform(unlabeled)
     clf.fit(X_train, y_train)
+    scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
+    print 'added: %d data points' % (len(idx))
+    print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
 
-    if i % 10 == 0:
-        scores.append(clf.score(X_test, y_test))
-        print 'added: %d data points' % (len(idx))
-        print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
+with open(name + 'threshold_results.txt', 'a') as f:
+    f.write('all_threshold=' + str(threshold).replace('.', '_') + 'iters=' + str(iters) + '\n')
+    f.write('best: %f iter: %d' % (np.max(scores), np.argmax(scores)))
+    f.write('\n')
 
-print clf.score(X_test, y_test)
+print f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro')
 plt.plot(range(len(scores)), scores)
 plt.xlabel('iters')
-plt.ylabel('accuracy')
-plt.show()
-
-'''
+plt.ylabel('F1 macro')
+plt.title(name + '_all_threshold=' + str(threshold).replace('.', '_') + 'iters=' + str(iters))
+plt.savefig('threshold_plots/' + name + 'all_threshold_' + str(threshold).replace('.', '_') + 'iters=' + str(iters))

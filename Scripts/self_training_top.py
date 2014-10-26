@@ -6,12 +6,13 @@ import random
 import codecs
 import matplotlib.pyplot as plt
 import numpy as np
-
+from sklearn.metrics import f1_score
+import sys
+import sys
 
 def load_unlabeled_twitter(fname):
     raw = codecs.open(fname, 'r', 'utf8')  # load and split data into reviews
     return [''.join(r.split('\t')[1:]) for r in raw]
-
 
 def totarget(i):
     if i < 0:
@@ -20,10 +21,17 @@ def totarget(i):
         result = 1
     return result
 
-# Load datasets
-train, y_train = load_twitter_2class('Data/twitter/twitter.train')
-test, y_test = load_twitter_2class('Data/twitter/twitter.dev')
-unlabeled = load_unlabeled_twitter('Data/twitter_CST/englishtweets.both')
+
+train_f = 'Data/twitter/twitter.train'
+test_f = 'Data/twitter/twitter.dev'
+unlabeled_f = 'Data/twitter_CST/englishtweets.both'
+
+train, y_train = load_twitter_2class(train_f)
+test, y_test = load_twitter_2class(test_f)
+unlabeled = load_unlabeled_twitter(unlabeled_f)
+
+name = test_f.split('/')[-1].replace('.', '-')
+
 # unlabeled=unlabeled[:5000]
 random.shuffle(unlabeled)
 # Fit vectorizer with training data and transform datasets
@@ -36,24 +44,20 @@ X_U = vec.transform(unlabeled)
 # train classifier on labeled data
 clf = svc()
 clf.fit(X_train, y_train)
-# print clf.score(X_test,y_test)
+print 'F1 score', f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro')
 
-
-threshold = 1
+threshold = float(sys.argv[1])
 added = 0
 scores = []  # keep track of how it changes according to the development set
-iters = 50
+iters = 30
+num_top = 30
 for i in range(iters):
-    print
-    print 'iteration %d' % i
     # find points above threshold to add to training data
-    print 'unlabeled shape', X_U.shape
     distance = clf.decision_function(X_U)  # the distance (- or +) from the hyperplane
     idx = np.where(abs(distance) > threshold)[0]  # the indices above the threshold distance
     # take the 50 highest
-    top = (-(abs(distance)[idx])).argsort()[:30]
+    top = (-(abs(distance)[idx])).argsort()[:num_top]
     idx = idx[top]  #to remove
-    print idx
     target = map(totarget, distance[idx])
     y_train += target
     train += np.array(unlabeled)[idx]
@@ -64,16 +68,20 @@ for i in range(iters):
     X_test = vec.transform(test)
     X_U = vec.transform(unlabeled)
     clf.fit(X_train, y_train)
-
-    # if i % 10 == 0:
-    scores.append(clf.score(X_test, y_test))
+    scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
     print 'added %d unlabeled datapoints' % len(idx)
     print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
-print clf.score(X_test, y_test)
-print added
-plt.plot(range(len(scores)), scores)
 
+with open(name + 'threshold_results.txt', 'a') as f:
+    f.write('threshold_plots/top_threshold=' + str(threshold).replace('.', '_') + 'iters=' + str(iters) + '\n')
+    f.write('best: %f iter: %d' % (np.max(scores), np.argmax(scores)))
+    f.write('\n')
+
+print f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro')
+plt.plot(range(len(scores)), scores)
 plt.xlabel('iters')
-plt.ylabel('accuracy')
-plt.savefig('threshold=' + str(threshold).replace('.', '_') + ' iters=' + str(iters))
-plt.show()
+plt.ylabel('F1 macro')
+plt.title(name + '_top_threshold=' + str(threshold).replace('.', '_') + ' iters=' + str(iters) + 'top ' + str(num_top))
+plt.savefig('threshold_plots/' + name + 'top_threshold=' + str(threshold).replace('.', '_') + ' iters=' + str(
+    iters) + 'top ' + str(num_top))
+

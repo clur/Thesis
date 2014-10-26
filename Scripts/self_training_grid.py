@@ -1,4 +1,5 @@
 import cPickle
+from sklearn.metrics import f1_score
 
 __author__ = 'claire'
 from utility import load_twitter_2class, load_amazon
@@ -8,6 +9,7 @@ import random
 import codecs
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 # WRONG i'm adding points over and over again from unlabeled
 
@@ -29,11 +31,11 @@ def load_unlabeled_twitter(fname):
 
 
 def totarget(i):
-        if i < 0:
-            result = -1
-        else:
-            result = 1
-        return result
+    if i < 0:
+        result = -1
+    else:
+        result = 1
+    return result
 
 
 start = 0.1
@@ -46,11 +48,16 @@ ax = fig.add_subplot(111)
 ax.set_color_cycle([cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)])
 
 for threshold in np.arange(start, stop, 0.1):
-    # Load datasets
-    train, y_train = load_twitter_2class('Data/twitter/twitter.train')
-    test, y_test = load_twitter_2class('Data/twitter/twitter.dev')
-    unlabeled = load_unlabeled_twitter('Data/twitter_CST/englishtweets.both')
-    unlabeled = unlabeled[:5000]
+    train_f = 'Data/twitter/twitter.train'
+    test_f = 'Data/twitter/twitter.dev'
+    unlabeled_f = 'Data/twitter_CST/englishtweets.both'
+
+    train, y_train = load_twitter_2class(train_f)
+    test, y_test = load_twitter_2class(test_f)
+    unlabeled = load_unlabeled_twitter(unlabeled_f)
+
+    name = test_f.split('/')[-1].replace('.', '-')
+    # unlabeled=unlabeled[:5000]
     # random.shuffle(unlabeled)
     unlabeled_size = len(unlabeled)
 
@@ -63,12 +70,12 @@ for threshold in np.arange(start, stop, 0.1):
     # train classifier on labeled data
     clf = svc()
     clf.fit(X_train, y_train)
-    print 'initial score:', clf.score(X_test, y_test)
+    print 'initial score:', f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro')
     print 'initial size:train: %d unlabeled: %d' % (X_train.shape[0], X_U.shape[0])
     start_size = X_train.shape[0]
     iters = 10
-    scores = []  #keep track of how it changes according to the development set
-    scores.append(clf.score(X_test, y_test))
+    scores = []  # keep track of how it changes according to the development set
+    scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
     for i in range(iters):
         print
         print 'iteration %d' % i
@@ -87,11 +94,11 @@ for threshold in np.arange(start, stop, 0.1):
         X_U = vec.transform(unlabeled)
         clf.fit(X_train, y_train)
         # if i % 10 == 0:
-        scores.append(clf.score(X_test, y_test))
+        scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
         print 'added: %d data points' % (len(idx))
         print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
 
-    print clf.score(X_test, y_test)
+    print f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro')
 
     color = cm(1. * i / NUM_COLORS)  # color will now be an RGBA tuple
     ax.plot(range(len(scores)), scores, label=str(threshold))
@@ -99,8 +106,8 @@ for threshold in np.arange(start, stop, 0.1):
 
     # plt.show()
 plt.xlabel('iters')
-plt.ylabel('accuracy')
+plt.ylabel('F1 macro')
 plt.legend(loc=1, fontsize='x-small')
 fig.suptitle('Grid search of threshold values\n unlabeled data size = %d' % unlabeled_size)
-fig.savefig(str(threshold).replace('.', '_') + '_thresholds')
+fig.savefig('threshold_plots/' + name + '_GRID_' + str(threshold).replace('.', '_') + '_thresholds')
 plt.show()
