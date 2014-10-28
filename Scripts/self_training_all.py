@@ -2,10 +2,14 @@ import cPickle
 from sklearn.metrics import f1_score
 import sys
 
+'''
+ADD ALL THE POINTS ABOVE THRESHOLD TO TRAIN ON EACH PASS
+'''
 __author__ = 'claire'
 from utility import load_twitter_2class, load_amazon
 from sklearn.svm import LinearSVC as svc
 from sklearn.feature_extraction.text import TfidfVectorizer as tf
+from sklearn.feature_extraction.text import CountVectorizer as cv
 import random
 import codecs
 import matplotlib.pyplot as plt
@@ -36,7 +40,7 @@ name = test_f.split('/')[-1].replace('.', '-')
 
 
 # Fit vectorizer with training data and transform datasets
-vec = tf()
+vec = cv()
 X_train = vec.fit_transform(train)
 X_test = vec.transform(test)
 X_U = vec.transform(unlabeled)
@@ -45,7 +49,8 @@ X_U = vec.transform(unlabeled)
 # train classifier on labeled data
 clf = svc()
 clf.fit(X_train, y_train)
-threshold = float(sys.argv[1])
+# threshold = float(sys.argv[1])
+threshold = 0.2
 iters = 30
 scores = []  # keep track of how it changes according to the development set
 scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
@@ -66,8 +71,8 @@ for i in range(iters):
     X_U = vec.transform(unlabeled)
     clf.fit(X_train, y_train)
     scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
-    print 'added: %d data points' % (len(idx))
-    print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
+    # print 'added: %d data points' % (len(idx))
+    # print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
 
 with open(name + 'threshold_results.txt', 'a') as f:
     f.write('all_threshold=' + str(threshold).replace('.', '_') + 'iters=' + str(iters) + '\n')

@@ -84,7 +84,7 @@ if __name__ == "__main__":
     Y = []
     X = []
     window = 2
-    N = 100000  # sentences to consider
+    N = 10000  # sentences to consider
 
     s = 0
     for sentence in text:
@@ -107,5 +107,5 @@ if __name__ == "__main__":
         # perform sanity check
         # for i in range(len(Y)):
         # inv_vocab = {v: k for k, v in vocab.items()}
-        #     sanity_check(X[i], Y[i][0], inv_vocab)
+        # sanity_check(X[i], Y[i][0], inv_vocab)
 

@@ -10,9 +10,15 @@ from sklearn.metrics import f1_score
 import sys
 import sys
 
+'''
+LOOK AT ALL, ADD TOP N ABOVE THRESHOLD FOR EACH ITERATION
+'''
+
+
 def load_unlabeled_twitter(fname):
     raw = codecs.open(fname, 'r', 'utf8')  # load and split data into reviews
     return [''.join(r.split('\t')[1:]) for r in raw]
+
 
 def totarget(i):
     if i < 0:
@@ -57,7 +63,7 @@ for i in range(iters):
     idx = np.where(abs(distance) > threshold)[0]  # the indices above the threshold distance
     # take the 50 highest
     top = (-(abs(distance)[idx])).argsort()[:num_top]
-    idx = idx[top]  #to remove
+    idx = idx[top]  # to remove
     target = map(totarget, distance[idx])
     y_train += target
     train += np.array(unlabeled)[idx]
@@ -69,8 +75,8 @@ for i in range(iters):
     X_U = vec.transform(unlabeled)
     clf.fit(X_train, y_train)
     scores.append(f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro'))
-    print 'added %d unlabeled datapoints' % len(idx)
-    print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
+    # print 'added %d unlabeled datapoints' % len(idx)
+    # print 'Iteration %d : accuracy: %f ' % (i, scores[-1])
 
 with open(name + 'threshold_results.txt', 'a') as f:
     f.write('threshold_plots/top_threshold=' + str(threshold).replace('.', '_') + 'iters=' + str(iters) + '\n')

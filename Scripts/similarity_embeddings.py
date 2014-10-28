@@ -5,7 +5,7 @@ from pprint import pprint
 
 __author__ = 'claire'
 
-fname = 'CW_model/word_embeddings2.txt'
+fname = 'CW_model/word_embeddings_temp.txt'
 # fname='/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/embeddings/embeddings-scaled.EMBEDDING_SIZE=50.txt'
 # fname='/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/embeddings/sswe-u.txt'
 data = codecs.open(fname, 'r', 'utf8').readlines()
