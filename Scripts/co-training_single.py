@@ -52,9 +52,10 @@ unlabeled_f = 'Data/twitter_CST/englishtweets.both'
 train, y_train = load_twitter_2class(train_f)
 test, y_test = load_twitter_2class(test_f)
 unlabeled = load_unlabeled_twitter(unlabeled_f)
+random.shuffle(unlabeled)
 
 name = test_f.split('/')[-1].replace('.', '-')
-unlabeled = unlabeled[:1000]
+unlabeled = unlabeled[:5000]
 random.shuffle(unlabeled)
 threshold = 1
 iters = 5
@@ -101,7 +102,7 @@ for i in range(len(unlabeled)):
     dist2 = clf2.decision_function(X_U2)[0]
     # check if either above threshold
     if abs(dist1) > threshold or abs(dist2) > threshold:
-        print 'dist1 %f dist2 %f' % (dist1, dist2)
+        # print 'dist1 %f dist2 %f' % (dist1, dist2)
         # pick the largest absolute confidence
         dist = [dist1, dist2][np.argmax([abs(dist1), abs(dist2)])]
         print 'dist:', dist
@@ -110,14 +111,21 @@ for i in range(len(unlabeled)):
         y_train += [target]
         train += [np.array(unlabeled)[i]]
         # re fit and train vec and clfs
+        print 'len train %d' % len(train)
         X_train1 = vec1.fit_transform(train)
         clf1 = svc()
         clf1.fit(X_train1, y_train)
         X_train2 = vec2.fit_transform(train)
         clf2 = svc()
         clf2.fit(X_train2, y_train)
-    if i % 10 == 0:
-        score = validate(train, test)
+    if i % 100 == 0:
+        # score = validate(train, test)
+        v = cv()
+        X_tr = v.fit_transform(train)
+        X_te = v.transform(test)
+        c = svc()
+        c.fit(X_tr, y_train)
+        score = f1_score(y_test, c.predict(X_te), pos_label=None, average='macro')
         print 'point %d of %d' % (i, len(unlabeled))
         print 'f1 score:', score
         scores.append(score)
