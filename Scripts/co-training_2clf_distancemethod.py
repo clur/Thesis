@@ -52,7 +52,7 @@ name = test_f.split('/')[-1].replace('.', '-')
 # random.shuffle(unlabeled)
 # unlabeled = unlabeled[:5000]
 
-#VECTORIZE
+# VECTORIZE
 #vectorize based on initial training data
 vec = cv()
 X_train = vec.fit_transform(train)
