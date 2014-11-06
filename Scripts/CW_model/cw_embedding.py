@@ -147,6 +147,9 @@ train = theano.function(inputs=[X, y, y_noise],
 validate = theano.function(inputs=[X, y, y_noise],
                            outputs=[model.cost])  # no update step here
 
+theano.printing.pydotprint(train, outfile='graph_train_cw', var_with_name_simple=True)
+theano.printing.pydotprint(validate, outfile='graph_validate_cw', var_with_name_simple=True)
+
 check = []  # check the distance between related words 'good' and 'great'
 
 num_batches = words_x.shape[0] / B

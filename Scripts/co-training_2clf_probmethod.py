@@ -1,10 +1,11 @@
 """
 Shouldn't I refit the vectorizer? otherwise, what is the point of adding new data???
 
-Using decision boundary, can I normalize the distances returned?
+Using probability instead of distance
 """
 from __future__ import division
 from sklearn.metrics import f1_score
+from collections import Counter as C
 
 __author__ = 'claire'
 from utility import load_twitter_2class, load_amazon
@@ -24,8 +25,16 @@ def load_unlabeled_twitter(fname):
     return [''.join(r.split('\t')[1:]) for r in raw]
 
 
-def totarget(i):
+def totarget_distance(i):
     if i < 0:
+        result = -1
+    else:
+        result = 1
+    return result
+
+
+def totarget(i):
+    if i.argmax() == 0:
         result = -1
     else:
         result = 1
@@ -48,9 +57,10 @@ unlabeled_f = 'Data/twitter_CST/englishtweets.both'
 train, y_train = load_twitter_2class(train_f)
 test, y_test = load_twitter_2class(test_f)
 unlabeled = load_unlabeled_twitter(unlabeled_f)
+random.shuffle(unlabeled)
+# unlabeled = unlabeled[:5000]
 name = test_f.split('/')[-1].replace('.', '-')
-# random.shuffle(unlabeled)
-unlabeled = unlabeled[:5000]
+
 
 # VECTORIZE
 # vectorize based on initial training data
@@ -61,7 +71,7 @@ X_U = vec.transform(unlabeled)
 print 'initial train size:', X_train.shape[0]
 
 # INITIAL TRAIN
-#train two classifiers on initial training data
+# train two classifiers on initial training data
 clf1 = svc()
 clf1.fit(X_train, y_train)
 # print 'initial clf1 on train:', f1_score(y_train, clf1.predict(X_train), pos_label=None, average='macro')
@@ -73,68 +83,65 @@ clf2.fit(X_train, y_train)
 print 'initial clf2 on dev:', f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro')
 
 #SETTINGS
-threshold = 2
+threshold = 0.7
 iters = 1000
-n_pos = int(round(float(y_train.count(1) / len(y_train)), 1) * 10)
-n_neg = int(round(float(y_train.count(-1) / len(y_train)), 1) * 10)
-print n_pos
-print n_neg
-scores = []
-scores1 = []  # keep track of f1 scores over iterations
-scores2 = []
-dist1 = clf1.decision_function(X_test)
-print max(dist1)
-dist2 = clf2.decision_function(X_test)
-print max(dist2)
+n_pos = int(round(float(y_train.count(1) / len(y_train)), 1) * 100)
+n_neg = int(round(float(y_train.count(-1) / len(y_train)), 1) * 100)
+print 'pos to add:', n_pos
+print 'neg to add:', n_neg
+print 'threshold:', threshold
 
-y_pred = map(totarget, (dist1 + dist2) / 2)
+#initial scores
+scoreclf1 = []
+scoreclf2 = []
+scores = []
+probs1 = clf1.predict_proba(X_test)
+probs2 = clf2.predict_proba(X_test)
+y_pred = map(totarget, probs1 * probs2)
 score = f1_score(y_test, y_pred, pos_label=None, average='macro')
-score1 = f1_score(y_test, clf1.predict(X_test), pos_label=None, average='macro')
-score2 = f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro')
-scores1.append(score1)
-scores2.append(score2)
+scoreclf1.append(f1_score(y_test, clf1.predict(X_test), pos_label=None, average='macro'))
+scoreclf2.append(f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro'))
 scores.append(score)
 
+print clf1.classes_
+print clf2.classes_
 
 #TRAINING LOOP
 for i in range(iters):
     X_U = vec.transform(unlabeled)
     #CLF1
     # get confidence above threshold
-    dist1 = clf1.decision_function(X_U)
-    idx = np.where(abs(dist1) > threshold)[0]  # the indices above the threshold distance
+    # clf1.classes_: array([-1,  1])
+    pred1 = clf1.predict_proba(X_U)
+    neg_idx = np.where(pred1[:, 0] > threshold)[0]  # the indices above the threshold distance
+    pos_idx = np.where(pred1[:, 1] > threshold)[0]
     #get most neg and most pos samples
-    top_neg = dist1[idx].argsort()[:n_neg]
-    top_pos = dist1[idx].argsort()[-n_pos:]
-    top_negidx1 = idx[top_neg]
-    top_posidx1 = idx[top_pos]
-    print '1'
-    print dist1[top_negidx1]
-    print dist1[top_posidx1]
+    top_neg = pred1[:, 0][neg_idx].argsort()[-n_neg:]
+    top_pos = pred1[:, 1][pos_idx].argsort()[-n_pos:]
+    top_negidx1 = neg_idx[top_neg]
+    top_posidx1 = pos_idx[top_pos]
+    # print 'CLF1'
+    # print 'clf1 neg:', top_negidx1,pred1[top_negidx1]
+    # print 'clf1 pos:', top_posidx1,pred1[top_posidx1]
 
     #CLF2
     # get confidence above threshold
-    dist2 = clf2.decision_function(X_U)
-    idx = np.where(abs(dist2) > threshold)[0]  # the indices above the threshold distance
-    #get most neg and most pos samples to add
-    top_neg = dist2[idx].argsort()[:n_neg]
-    top_pos = dist2[idx].argsort()[-n_pos:]
-    top_negidx2 = idx[top_neg]
-    top_posidx2 = idx[top_pos]
-    print '2'
-    print dist2[top_negidx2]
-    print dist2[top_posidx2]
+    # clf2.classes_: array([-1,  1])
+    pred2 = clf2.predict_proba(X_U)
+    neg_idx = np.where(pred2[:, 0] > threshold)[0]  # the indices above the threshold distance
+    pos_idx = np.where(pred2[:, 1] > threshold)[0]
+    #get most neg and most pos samples
+    top_neg = pred2[:, 0][neg_idx].argsort()[-n_neg:]
+    top_pos = pred2[:, 1][pos_idx].argsort()[-n_pos:]
+    top_negidx2 = neg_idx[top_neg]
+    top_posidx2 = pos_idx[top_pos]
+    # print 'clf2 neg:', top_negidx1,pred1[top_negidx1]
+    # print 'clf2 pos:', top_posidx1,pred1[top_posidx1]
 
+    # add to train
     poses = [top_posidx1.tolist() + top_posidx2.tolist()][0]
     negs = [top_negidx1.tolist() + top_negidx2.tolist()][0]
-    joint = [u for u in poses if u in negs]
-    if joint != []:
-        for i in joint:
-            print unlabeled[i]
-            print dist1[i], ':', dist2[i]
-        print joint
-        print
-        print 'disagree'
+    if [u for u in poses if u in negs] != []:
         break  #if they don't agree, this should never happen
     # print 'negs:', negs
     # print 'poses:', poses
@@ -152,7 +159,6 @@ for i in range(iters):
     # print 'toremove:', toremove
     # remove those points from unlabeled
     unlabeled = [unlabeled[x] for x in range(len(unlabeled)) if x not in toremove]
-
     #RE-TRAIN CLFS
     X_train = vec.transform(train)
     clf1 = svc()
@@ -162,50 +168,47 @@ for i in range(iters):
     # SCORE
     if i % 10 == 0:
         print 'iteration: %d (of %d)' % (i, iters)
-        dist1 = clf1.decision_function(X_test)
-        dist2 = clf2.decision_function(X_test)
-        y_pred = map(totarget, (dist1 + dist2) / 2)
-        # print y_pred
-        scores.append(f1_score(y_test, y_pred, pos_label=None, average='macro'))
-        score1 = f1_score(y_test, clf1.predict(X_test), pos_label=None, average='macro')
-        score2 = f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro')
-        print 'f1 score, clf1:', score1
-        print 'f1 score, clf2:', score2
-        scores1.append(score1)
-        scores2.append(score2)
+        probs1 = clf1.predict_proba(X_test)
+        probs2 = clf2.predict_proba(X_test)
+        # print probs1[0], probs2[0]
+        # print probs1 * probs2
+        # print map(totarget, probs1 * probs2)
+        y_pred = map(totarget, probs1 * probs2)
+        score = f1_score(y_test, y_pred, pos_label=None, average='macro')
+        scoreclf1.append(f1_score(y_test, clf1.predict(X_test), pos_label=None, average='macro'))
+        scoreclf2.append(f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro'))
+        print 'f1 score, product of clfs:', score
+        scores.append(score)
 
-dist1 = clf1.decision_function(X_test)
-dist2 = clf2.decision_function(X_test)
-y_pred = map(totarget, (dist1 + dist2) / 2)
+
+#STATS ON TRAIN
+print C(y_train)
+print 'iterations: %d of %d' % (i, iters)
+probs1 = clf1.predict_proba(X_test)
+probs2 = clf2.predict_proba(X_test)
+# print probs1[0], probs2[0]
+# print probs1 * probs2
+# print map(totarget, probs1 * probs2)
+y_pred = map(totarget, probs1 * probs2)
 score = f1_score(y_test, y_pred, pos_label=None, average='macro')
-score1 = f1_score(y_test, clf1.predict(X_test), pos_label=None, average='macro')
-score2 = f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro')
-print 'final f1 score, clf1:', score1
-print 'final f1 score, clf2:', score2
-print 'final combined f1 score:', score
-scores1.append(score1)
-scores2.append(score2)
 scores.append(score)
+scoreclf1.append(f1_score(y_test, clf1.predict(X_test), pos_label=None, average='macro'))
+scoreclf2.append(f1_score(y_test, clf2.predict(X_test), pos_label=None, average='macro'))
+print 'final f1 score, product of clfs:', score
 
-plt.plot(range(len(scores1)), scores1, label='clf1')
-plt.plot(range(len(scores2)), scores2, label='clf2')
-plt.xlabel('Unlabeled data-points seen')
+plt.plot(range(len(scores)), scores, label='combined clfs')
+plt.plot(range(len(scoreclf1)), scoreclf1, label='clf1')
+plt.plot(range(len(scoreclf2)), scoreclf2, label='clf2')
+
+plt.xlabel('Unlabeled data-points seen (*10)')
 plt.ylabel('f1-score')
 plt.legend()
 plt.title('Co-training')
-# plt.show()
+plt.show()
 
 # plt.savefig(
 #     'threshold_plots/' + name + 'cotrainclfsingle_threshold_' + str(threshold).replace('.', '_') + 'iters=' + str(
 #         iters))
-# # retrain the resulting training set with full vocab, test on test set
-# vec = cv()
-# X_train = vec.fit_transform(train)
-# X_test = vec.transform(test)
-# clf = svc()
-# clf.fit(X_train, y_train)
-# print 'final train size:', X_train.shape[0]
-# print 'final (all features):', f1_score(y_test, clf.predict(X_test), pos_label=None, average='macro')
 
 # with open(name + 'threshold_results.txt', 'a') as f:
 #     f.write('cotrainclfsingle_threshold=' + str(threshold).replace('.', '_') + 'iters=' + str(iters) + '\n')
