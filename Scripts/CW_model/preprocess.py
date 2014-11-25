@@ -17,7 +17,7 @@ class MyTokens(object):
             yield self.token.findall(line.lower())
 
 
-def get_vocab(file, v=20000):
+def get_vocab(file, v):
     """
     extract vocabulary from file capped at v most frequent words
     :returns a dictionary of word:index pairs where index of
@@ -66,11 +66,13 @@ def sanity_check(x, y, inv_vocab):
 
 if __name__ == "__main__":
 
-    file = '/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/Data/CW_data/wikipedia/padded_full.txt'
-    # vocab=get_vocab(file, v=20000)
+    file = '/Users/claire/Dropbox/PycharmProjects/Thesis/Scripts/Data/CW_data/wikipedia/full.txt'
+    top = 20000
+    # vocab = get_vocab(file, top)
 
+    # '''
     # use list already extracted to speed things up
-    x = open('top words.txt').readlines()
+    x = open('top_words.txt').readlines()
     idx = 0
     vocab = defaultdict()
     for i in x:
@@ -78,13 +80,14 @@ if __name__ == "__main__":
         idx += 1
     vocab['UNK'] = len(vocab)
     vocab['zpaddingz'] = len(vocab)
-    with open('vocab.pickle', 'wb') as handle:
-        cPickle.dump(vocab, handle)
+    # '''
+    # with open('vocab_'+str(top)+'.pickle', 'wb') as handle:
+    # cPickle.dump(vocab, handle)
     text = MyTokens(file)  # text is list of list of tokens
     Y = []
     X = []
     window = 2
-    N = 10000  # sentences to consider
+    N = 100  # sentences to consider
 
     s = 0
     for sentence in text:
@@ -98,14 +101,16 @@ if __name__ == "__main__":
                 Y.append(mapping([sentence[idx]]))
                 # print 'y: %s mapping: %s' % (sentence[idx], mapping([sentence[idx]]))
                 X.append(mapping(sentence[idx - window:idx] + sentence[idx + 1:idx + 1 + window]))
+                print mapping(sentence[idx - window:idx] + sentence[idx + 1:idx + 1 + window])
+    print np.array(X).shape
+    print np.array(Y).shape
+    # with open('X_' + str(len(X)) + '.pickle', 'wb') as handle:
+    # cPickle.dump(np.array(X), handle, protocol=-1)
+    # with open('Y_' + str(len(X)) + '.pickle', 'wb') as handle:
+    #     cPickle.dump(np.array(Y), handle, protocol=-1)
 
-    with open('X_' + str(len(X)) + '.pickle', 'wb') as handle:
-        cPickle.dump(np.array(X), handle)
-    with open('Y_' + str(len(X)) + '.pickle', 'wb') as handle:
-        cPickle.dump(np.array(Y), handle)
-
-        # perform sanity check
-        # for i in range(len(Y)):
-        # inv_vocab = {v: k for k, v in vocab.items()}
-        # sanity_check(X[i], Y[i][0], inv_vocab)
+    # perform sanity check
+    # for i in range(len(Y)):
+    # inv_vocab = {v: k for k, v in vocab.items()}
+    # sanity_check(X[i], Y[i][0], inv_vocab)
 

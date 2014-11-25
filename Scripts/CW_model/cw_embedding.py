@@ -7,11 +7,12 @@ from collections import OrderedDict
 from scipy import stats
 import matplotlib.pyplot as plt
 import time
-from sklearn.metrics.pairwise import pairwise_distances as pd
-
+# from sklearn.metrics.pairwise import pairwise_distances as pd
+from scipy.spatial.distance import pdist
+import random
 
 class CW(object):
-    def __init__(self, X, y, y_noise, V, K, num_context, n_hidden):
+    def __init__(self, V, K, num_context, n_hidden, R):
         """
         :param X: matrix of (B, H) input context word ids
         :param y: projection of target word
@@ -28,16 +29,17 @@ class CW(object):
         print 'W2:', n_hidden, 'x', 1
 
         randn = np.random.randn
-        self.R = theano.shared(value=randn(V, K), name='R')
+        # self.R = theano.shared(value=randn(V, K), name='R')
+        self.R = theano.shared(value=R, name='R')
+
         self.hidden_bias = theano.shared(value=np.zeros((n_hidden,)), name='bias')
         self.W1 = theano.shared(value=randn(n_in, n_hidden), name='W1')
         self.W2 = theano.shared(value=randn(n_hidden, 1), name='W2')
         self.params = [self.R, self.W1, self.hidden_bias, self.W2]
-        self.cost = self.get_cost(X, y, y_noise)
+        # self.cost = self.get_cost(X, y, y_noise)
 
     def score(self, hiddens):
         return T.dot(hiddens, self.W2)
-
 
     def get_hidden(self, projections):
         pre_hidden = T.dot(projections, self.W1) + self.hidden_bias
@@ -53,7 +55,7 @@ class CW(object):
         hiddens = self.get_hidden(projections)
         return T.mean(self.score(hiddens))  # scalar score
 
-    def hinge_loss(self, s_pos, s_neg):
+    def hinge_loss_new(self, s_pos, s_neg):
         """
         Try this version of the hinge loss instead of T.maximum(0, 1 - positive_score - negative_score):
         scores = (T.ones_like(positive_score) - positive_score + negative_score)
@@ -63,13 +65,30 @@ class CW(object):
         scores = (T.ones_like(s_pos) - s_pos + s_neg)
         return (scores * (scores > 0)).mean()
 
-    def hinge_loss_original(self, s_pos, s_neg):
-        return T.maximum(0, 1 - (s_pos - s_neg))
+    def hinge_loss(self, s_pos, s_neg):
+        self.s_pos = s_pos
+        self.s_neg = s_neg
+        return T.maximum(0, 1 - (s_pos - s_neg))  # 1-(4 - 5)
+
+    # def get_cost(self, X, y, y_noise):
+    # s_pos = self.concat_and_score(X, y)
+    # s_neg = self.concat_and_score(X, y_noise)
+    #     return self.hinge_loss(s_pos, s_neg)
+
+    def get_cost_updates(self, X, y, y_noise, learning_rate):
+        s_pos = self.concat_and_score(X, y)
+        s_neg = self.concat_and_score(X, y_noise)
+        cost = self.hinge_loss(s_pos, s_neg)
+        gparams = T.grad(cost, self.params)
+        updates = [(param, param - learning_rate * gparam) for param, gparam in zip(self.params, gparams)]
+        learning_rate *= 0.95
+        return (cost, updates)
 
     def get_cost(self, X, y, y_noise):
         s_pos = self.concat_and_score(X, y)
         s_neg = self.concat_and_score(X, y_noise)
-        return self.hinge_loss(s_pos, s_neg)
+        cost = self.hinge_loss(s_pos, s_neg)
+        return cost
 
 
 def gen_noise(distribution, shape0):
@@ -88,25 +107,78 @@ def sanity_check(x, y, noise):
     x = x[0]
     y = y[0]
     noise = noise[0]
-    context = [inv_vocab[i] for i in x]
+    context = [inv_vocab[w] for w in x]
     print 'target:', ' '.join(context[:2]) + ' [' + inv_vocab[y[0]] + '] ' + ' '.join(context[2:])
     print 'noise:', ' '.join(context[:2]) + ' [' + inv_vocab[noise[0]] + '] ' + ' '.join(context[2:])
 
+#for debugging theano graph
+def inspect_inputs(i, node, fn):
+    print i, node, "input(s) value(s):\n", [input[0] for input in fn.inputs],
+
+
+def inspect_outputs(i, node, fn):
+    print "output(s) value(s):\n", [output[0] for output in fn.outputs]
+
+
+theano.config.mode = 'FAST_RUN'
+# theano.printing.pydotprint(train, outfile='graph_train_cw', var_with_name_simple=True)
+# theano.printing.pydotprint(validate, outfile='graph_validate_cw', var_with_name_simple=True)
 
 start = time.time()
+# create unigram distribution from top words file, used for noise generation
+
 # load pickled context file, target file and vocab file
 print 'loading data'
-x = cPickle.load(open('X_.pickle', 'rb'))  # context words
-y = cPickle.load(open('Y_.pickle', 'rb'))  # target words
-split = int(0.90 * len(y))
+x = cPickle.load(open('X_4mil.pickle', 'rb'))  # context words
+y = cPickle.load(open('Y_4mil.pickle', 'rb'))  # target words
+
+print 'shuffling data'
+combined = zip(x, y)
+random.shuffle(combined)
+x[:], y[:] = zip(*combined)
+
+split = int(0.80 * len(y))
 words_x = x[:split]
 words_y = y[:split]
-validate_x = x[split:]  # first 10% for validation
+validate_x = x[split:]  # first 20% for validation
 validate_y = y[split:]
+# words_x = x
+# words_y = y
 assert words_x.shape[0] == len(words_y)
 vocab = cPickle.load(open('vocab.pickle', 'rb'))  # maps words to integer ids, most frequent word id=0 etc.
 inv_vocab = {v: k for k, v in vocab.items()}  # inverted vocab for mapping back from indices to words
+cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
 print 'loaded data'
+
+
+
+def plot_all(e):
+    fo = 'word_embeddings/'
+    # plt.plot(range(len(t_costs)), t_costs)
+    # # plt.ylim([-10,10])
+    # plt.title('t_cost')
+    # # plt.show()
+    # plt.savefig(fo+'t_cost_'+str(e))
+    # plt.clf()
+    plt.plot(range(len(v_costs)), v_costs)
+    plt.title('v_cost')
+    # plt.show()
+    plt.savefig(fo + 'v_cost_' + str(e))
+    plt.clf()
+
+    # plot distance between related words 'good' and 'great'
+    plt.title('distance between "good" and "great"')
+    plt.subplot(1, 2, 1)
+    plt.plot(range(len(check1)), check1, label='euclidean')
+    # plt.xlabel('1000 batches')
+    # plt.ylabel('distance')
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(range(len(check2)), check2, label='cosine')
+    plt.legend()
+    # plt.show()
+    plt.savefig(fo + 'distance_' + str(e))
+    plt.clf()
 
 # set sizes
 K = 40  # embedding size
@@ -114,96 +186,82 @@ B = 20  # batchsize
 n_hidden = K
 num_context = words_x.shape[1]  # context size
 V = len(vocab)  # vocab size
-
-# create unigram distribution from top words file, used for noise generation
-wfreq = open('top words.txt', 'r').readlines()
-wfreq = [w.strip().split(':') for w in wfreq]
-total = sum([int(w[1]) for w in wfreq])  # should this be the total number of tokens in the file??
-dist = [(float(w[1]) / total) * 1.0 for w in wfreq]
-unigram = stats.rv_discrete(name='unigram', values=(np.arange(len(dist)), dist))
-
+print 'training samples:', len(words_x), 'validation samples', len(validate_x)
+print 'batchsize:', B
 # symbolic variables to pass to theano function
 X = T.lmatrix(name='X2')
 y = T.lmatrix(name='y2')
 y_noise = T.lmatrix(name='ynoise')
-
+R = cPickle.load(open('R_0'))
 # instantiate model object
-model = CW(X, y, y_noise, V, K, num_context, n_hidden)
-
-# Gradient descent
-updates = OrderedDict()
+model = CW(V, K, num_context, n_hidden, R)
 lr = 1e-3  # learning rate
-grads = T.grad(cost=model.cost,
-               wrt=model.params)  # self.cost = self.get_cost(X, y, y_noise), self.params = [self.R, self.W1, self.hidden_bias, self.W2]
-for p, g in zip(model.params, grads):
-    updates[p] = p - lr * g
+cost, updates = model.get_cost_updates(X, y, y_noise, learning_rate=lr)
+v_cost = model.get_cost(X, y, y_noise)
+train = theano.function(inputs=[X, y, y_noise], outputs=[cost, model.s_pos, model.s_neg],
+                        updates=updates)  # , mode=theano.compile.MonitorMode(pre_func=inspect_inputs,post_func=inspect_outputs) )
+validate = theano.function(inputs=[X, y, y_noise], outputs=[cost, model.s_pos,
+                                                            model.s_neg])  # , mode=theano.compile.MonitorMode(pre_func=inspect_inputs,post_func=inspect_outputs))  # no update step here
 
-# train function
-train = theano.function(inputs=[X, y, y_noise],
-                        outputs=[model.cost],
-                        updates=updates)
+check1 = []  # check the distance between related words 'good' and 'great'
+check2 = []
+v_costs = []
+t_costs = []
+epochs = 10
 
-# validation function
-validate = theano.function(inputs=[X, y, y_noise],
-                           outputs=[model.cost])  # no update step here
+for e in range(epochs):
+    print 'epoch ', e
+    num_batches = words_x.shape[0] / B
+    for t in xrange(num_batches):
+        start_idx = t * B
+        end_idx = (t + 1) * B
+        x_batch = words_x[start_idx:end_idx].astype('int32')
+        y_batch = words_y[start_idx:end_idx].astype('int32')
+        y_noise_batch = gen_noise(unigram, B)
 
-theano.printing.pydotprint(train, outfile='graph_train_cw', var_with_name_simple=True)
-theano.printing.pydotprint(validate, outfile='graph_validate_cw', var_with_name_simple=True)
+        c, s_pos, s_neg = train(x_batch, y_batch, y_noise_batch)
+        t_costs.append(c)
+        if c < 0:
+            # print 'xy'
+            # for i in range(len(x_batch)):
+            # print [inv_vocab[w] for w in x_batch[i]], inv_vocab[y_batch[i][0]]
+            #
+            # print 'xynoise'
+            # for i in range(len(x_batch)):
+            # print [inv_vocab[w] for w in x_batch[i]], inv_vocab[y_noise_batch[i][0]]
+            #
+            print 'NEGATIVE COST'
+            print 'pos', s_pos, 'neg', s_neg, 'cost', c
+            print
 
-check = []  # check the distance between related words 'good' and 'great'
-
-num_batches = words_x.shape[0] / B
-for t in xrange(num_batches):
-    start_idx = t * B
-    end_idx = (t + 1) * B
-    x_batch = words_x[start_idx:end_idx].astype('int32')
-    y_batch = words_y[start_idx:end_idx].astype('int32')
-    y_noise_batch = gen_noise(unigram, B)
-    # sanity_check(x_batch,y_batch,y_noise_batch)
-    cost = train(x_batch, y_batch, y_noise_batch)[0]
-    if t % 10 == 0:
-        print "Batch: %d (of %d)/ cost = %.4f" % (t, num_batches, cost)
-        with(open('validation.cost', 'a')) as f:  # write the validation cost for the whole set to file
-            validation_cost = validate(validate_x, validate_y, gen_noise(unigram, len(validate_y)))[0]
-            print "validation cost = %.4f" % validation_cost
-            f.write(str(validation_cost) + '\n')
-    if t % 100 == 0:  # check cosine distance
-        dist = pd(model.R.get_value()[vocab['good']], Y=model.R.get_value()[vocab['great']], metric='cosine', n_jobs=1)[
-            0]
-        print '\ndist good and great', dist, '\n'
-        check.append(dist)
+        if t % 100 == 0:  # check cosine distance
+            valid_c, valid_s_pos, valid_s_neg = validate(validate_x.astype('int32'), validate_y.astype('int32'),
+                                                         gen_noise(unigram, len(validate_y)))
+            v_costs.append(valid_c)
+            # print 'pos',valid_s_pos, 'neg',valid_s_neg
+            print "Batch: %d (of %d)/ v_cost = %.4f" % (t, num_batches, valid_c)
+            # print 'batch:%d of %d' % (t,num_batches)
+            # print 'pos', s_pos, 'neg', s_neg, 'batch cost', c
+            good = model.R.get_value()[vocab['good']]
+            great = model.R.get_value()[vocab['great']]
+            # print np.vstack((good, great)).shape
+            dist1 = pdist(np.vstack((good, great)), 'euclidean')
+            # dist2 = pd(good, Y=great, metric='cosine', n_jobs=1)[0]
+            dist2 = pdist(np.vstack((good, great)), 'cosine')
+            # print '\neuc dist good and great', dist1
+            # print 'cos dist good and great', dist2
+            check1.append(dist1)
+            check2.append(dist2)
+            # if t % 20000 == 0:
+            # save embeddings learned
+    print "took :", time.time() - start
+    plot_all(e)
+    with open('word_embeddings/epoch_' + str(e) + '.txt', 'w') as f:
+        for i in inv_vocab.iterkeys():
+            f.write(inv_vocab[i] + ' ')
+            f.write(' '.join([str(r) for r in model.R.get_value()[i]]))
+            f.write('\n')
+    cPickle.dump(model.R.get_value(), open('word_embeddings/R_' + str(e), 'wb'))
 
 print "took :", time.time() - start
-
-# plot distance between related words 'good' and 'great'
-plt.plot(range(len(check)), check)
-plt.title('distance between "good" and "great"')
-plt.xlabel('100*(batchsize=' + str(B))
-plt.ylabel('cosine distance')
-plt.show()
-
-
-def plot_validation(fname, B):
-    y = open('validation.cost').readlines()
-    y = [i.strip() for i in y]
-    y = [float(i) for i in y]
-    x = range(len(y))
-    x = [i * B for i in x]
-    plt.clf()
-    plt.plot(x, y)
-    plt.xlabel('batches')
-    plt.ylabel('validation cost')
-    plt.suptitle('Cost over total train set\nBatch size = %d' % B)
-    # plt.show()
-    plt.savefig(fname)
-
-
-plot_validation('valcost', B)
-
-# save embeddings learned
-with codecs.open('word_embeddings_temp.txt', 'w', 'utf8') as f:
-    for i in inv_vocab.iterkeys():
-        f.write(unicode(inv_vocab[i]) + ' ')
-        f.write(' '.join([str(r) for r in model.R.get_value()[i]]))
-        f.write('\n')
-
+# plot_all(e)
