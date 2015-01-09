@@ -59,9 +59,10 @@ test_data, y_test = load_twitter_2class('/Users/claire/Dropbox/PycharmProjects/T
 print 'train samples:', len(y_train)
 print 'test samples:', len(y_test)
 
-old_vec = cPickle.load(open('vec'))
-vec = tf(vocabulary=old_vec.vocabulary_)
-X_train = vec.fit_transform(train_data)
+vec = cPickle.load(open('AE_unlabeled_vec2014-11-17 11:56:27.965705'))
+
+# vec = tf(vocabulary=old_vec.vocabulary_)
+X_train = vec.transform(train_data)
 X_test = vec.transform(test_data)
 print X_train.shape
 print X_test.shape

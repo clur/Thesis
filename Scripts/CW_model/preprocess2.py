@@ -85,17 +85,13 @@ if __name__ == "__main__":
     vocab['UNK'] = len(vocab)
     vocab['BLANK'] = len(vocab)
     # do unigram dist for noise
-    wfreq = [w.strip().split('\t') for w in text]
-    total = sum([int(w[1]) for w in wfreq])  # should this be the total number of tokens in the file??
-    dist = [(float(w[1]) / total) * 1.0 for w in wfreq]
-    unigram = stats.rv_discrete(name='unigram', values=(np.arange(len(dist)), dist))
 
     Y = []
     X = []
     window = 5
     N = 200000  # sentences to consider
     padding = ['BLANK']
-    text = MyTokens(file)  # text is list of list of tokens
+    text = MyTokens(file)  # text is an iterator over a list of list of tokens
     s = 0
 
     for sentence in text:
@@ -123,17 +119,17 @@ if __name__ == "__main__":
     if not os.path.exists(dirname):
         os.mkdir(dirname)
     os.chdir(dirname)
-    with open('X_' + str(len(X)) + '.pickle', 'wb') as handle:
+    with open('X.pickle', 'wb') as handle:
         cPickle.dump(np.array(X), handle, protocol=-1)
-    with open('Y_' + str(len(Y)) + '.pickle', 'wb') as handle:
+    with open('Y.pickle', 'wb') as handle:
         cPickle.dump(np.array(Y), handle, protocol=-1)
     with open('vocab' + '.pickle', 'wb') as handle:
         cPickle.dump(vocab, handle)
     inv_vocab = {v: k for k, v in vocab.items()}
     with open('inv_vocab' + '.pickle', 'wb') as handle:
         cPickle.dump(inv_vocab, handle)
-    with open('unigram' + '.pickle', 'wb') as handle:
-        cPickle.dump(unigram, handle)
+    # with open('unigram' + '.pickle', 'wb') as handle:
+    # cPickle.dump(unigram, handle)
     with open('Readme.txt', 'w') as handle:
         handle.write('Created: ' + str(datetime.datetime.now()))
         handle.write('\nWindow: ' + str(window))

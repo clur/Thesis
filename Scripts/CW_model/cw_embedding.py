@@ -11,8 +11,11 @@ import time
 from scipy.spatial.distance import pdist
 import random
 
+dir = 'Preprocessed_window_5'
+
+
 class CW(object):
-    def __init__(self, V, K, num_context, n_hidden, R):
+    def __init__(self, V, K, num_context, n_hidden, R=None):
         """
         :param X: matrix of (B, H) input context word ids
         :param y: projection of target word
@@ -29,8 +32,10 @@ class CW(object):
         print 'W2:', n_hidden, 'x', 1
 
         randn = np.random.randn
-        # self.R = theano.shared(value=randn(V, K), name='R')
-        self.R = theano.shared(value=R, name='R')
+        if R:
+            self.R = theano.shared(value=R, name='R')
+        else:
+            self.R = theano.shared(value=randn(V, K), name='R')
 
         self.hidden_bias = theano.shared(value=np.zeros((n_hidden,)), name='bias')
         self.W1 = theano.shared(value=randn(n_in, n_hidden), name='W1')
@@ -73,7 +78,7 @@ class CW(object):
     # def get_cost(self, X, y, y_noise):
     # s_pos = self.concat_and_score(X, y)
     # s_neg = self.concat_and_score(X, y_noise)
-    #     return self.hinge_loss(s_pos, s_neg)
+    # return self.hinge_loss(s_pos, s_neg)
 
     def get_cost_updates(self, X, y, y_noise, learning_rate):
         s_pos = self.concat_and_score(X, y)
@@ -111,7 +116,8 @@ def sanity_check(x, y, noise):
     print 'target:', ' '.join(context[:2]) + ' [' + inv_vocab[y[0]] + '] ' + ' '.join(context[2:])
     print 'noise:', ' '.join(context[:2]) + ' [' + inv_vocab[noise[0]] + '] ' + ' '.join(context[2:])
 
-#for debugging theano graph
+
+# for debugging theano graph
 def inspect_inputs(i, node, fn):
     print i, node, "input(s) value(s):\n", [input[0] for input in fn.inputs],
 
@@ -126,17 +132,23 @@ theano.config.mode = 'FAST_RUN'
 
 start = time.time()
 # create unigram distribution from top words file, used for noise generation
+text = open('all_vocab_no_single_occ.txt').readlines()[:30000]  # no of top words
+wfreq = [w.strip().split('\t') for w in text]
+total = sum([int(w[1]) for w in wfreq])  # should this be the total number of tokens in the file??
+dist = [(float(w[1]) / total) * 1.0 for w in wfreq]
+unigram = stats.rv_discrete(name='unigram', values=(np.arange(len(dist)), dist))
 
 # load pickled context file, target file and vocab file
 print 'loading data'
-x = cPickle.load(open('X_4mil.pickle', 'rb'))  # context words
-y = cPickle.load(open('Y_4mil.pickle', 'rb'))  # target words
+x = cPickle.load(open(dir + '/X.pickle', 'rb'))  # context words
+y = cPickle.load(open(dir + '/Y.pickle', 'rb'))  # target words
 
 print 'shuffling data'
 combined = zip(x, y)
 random.shuffle(combined)
 x[:], y[:] = zip(*combined)
 
+print 'splitting train and validation'
 split = int(0.80 * len(y))
 words_x = x[:split]
 words_y = y[:split]
@@ -145,11 +157,11 @@ validate_y = y[split:]
 # words_x = x
 # words_y = y
 assert words_x.shape[0] == len(words_y)
-vocab = cPickle.load(open('vocab.pickle', 'rb'))  # maps words to integer ids, most frequent word id=0 etc.
-inv_vocab = {v: k for k, v in vocab.items()}  # inverted vocab for mapping back from indices to words
-cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
+vocab = cPickle.load(open(dir + '/vocab.pickle', 'rb'))  # maps words to integer ids, most frequent word id=0 etc.
+# inv_vocab = {v: k for k, v in vocab.items()}  # inverted vocab for mapping back from indices to words
+# cPickle.dump(inv_vocab, open('inv_vocab.pickle', 'wb'))
+inv_vocab = cPickle.load(open(dir + '/inv_vocab.pickle', 'rb'))
 print 'loaded data'
-
 
 
 def plot_all(e):
@@ -186,15 +198,16 @@ B = 20  # batchsize
 n_hidden = K
 num_context = words_x.shape[1]  # context size
 V = len(vocab)  # vocab size
-print 'training samples:', len(words_x), 'validation samples', len(validate_x)
+print 'training samples:', "{:,}".format(len(words_x)), 'validation samples', "{:,}".format(len(validate_x))
 print 'batchsize:', B
 # symbolic variables to pass to theano function
 X = T.lmatrix(name='X2')
 y = T.lmatrix(name='y2')
 y_noise = T.lmatrix(name='ynoise')
-R = cPickle.load(open('R_0'))
+# load recent embedding to continue where training
+# R = cPickle.load(open('R_0'))
 # instantiate model object
-model = CW(V, K, num_context, n_hidden, R)
+model = CW(V, K, num_context, n_hidden)
 lr = 1e-3  # learning rate
 cost, updates = model.get_cost_updates(X, y, y_noise, learning_rate=lr)
 v_cost = model.get_cost(X, y, y_noise)
@@ -222,14 +235,6 @@ for e in range(epochs):
         c, s_pos, s_neg = train(x_batch, y_batch, y_noise_batch)
         t_costs.append(c)
         if c < 0:
-            # print 'xy'
-            # for i in range(len(x_batch)):
-            # print [inv_vocab[w] for w in x_batch[i]], inv_vocab[y_batch[i][0]]
-            #
-            # print 'xynoise'
-            # for i in range(len(x_batch)):
-            # print [inv_vocab[w] for w in x_batch[i]], inv_vocab[y_noise_batch[i][0]]
-            #
             print 'NEGATIVE COST'
             print 'pos', s_pos, 'neg', s_neg, 'cost', c
             print
